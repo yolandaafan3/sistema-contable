@@ -184,3 +184,33 @@ CREATE INDEX idx_detalle_cuenta
 
 CREATE INDEX idx_kardex_producto_fecha
     ON kardex(id_producto, fecha);
+
+
+-- ============================================================
+-- SEGURIDAD: LOGIN Y ROLES
+-- ============================================================
+-- ============================================================
+-- MODULO DE LOGIN Y ROLES
+-- Ejecutar sobre la base existente sistema_contable
+-- ============================================================
+
+
+CREATE TABLE IF NOT EXISTS roles (
+    id_rol INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(30) NOT NULL UNIQUE,
+    nombre VARCHAR(80) NOT NULL,
+    descripcion VARCHAR(255),
+    activo BOOLEAN NOT NULL DEFAULT TRUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    usuario VARCHAR(60) NOT NULL UNIQUE,
+    nombre_completo VARCHAR(150) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    id_rol INT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ultimo_acceso TIMESTAMP NULL,
+    CONSTRAINT fk_usuario_rol FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+) ENGINE=InnoDB;

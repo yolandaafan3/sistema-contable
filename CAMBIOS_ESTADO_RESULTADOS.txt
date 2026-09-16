@@ -1,0 +1,47 @@
+CAMBIOS - ESTADO DE RESULTADOS
+==============================
+
+Se ajusto el Estado de Resultados al formato solicitado:
+
+1) Ventas
+   - Devoluciones sobre ventas
+   - Descuentos sobre ventas
+   = Ventas netas
+
+2) Compras mostradas
+   = Compras de la mayorizacion
+   + Inventario inicial ingresado en apertura
+   - Inventario final del Kardex PEPS
+
+3) Compras
+   + Gastos sobre compras
+   = Compras totales
+
+4) Compras totales
+   - Devoluciones sobre compras
+   - Descuentos sobre compras
+   = Compras netas
+   = Costo de ventas
+
+5) Ventas netas - Costo de ventas = Utilidad bruta
+
+6) Utilidad bruta
+   - Gastos administrativos
+   - Gastos de venta
+   - Gastos financieros
+   = Utilidad operacional antes del impuesto
+
+7) Utilidad operacional antes del impuesto
+   + Otros productos / Productos financieros
+   = Utilidad del ejercicio
+
+IMPORTANTE:
+- Inventario inicial e inventario final NO se muestran como renglones separados.
+- Se utilizan internamente para calcular la linea "Compras".
+- No se cambio la estructura de tablas de la base de datos.
+- Se agregaron al catalogo las cuentas:
+  4.1.03 Descuentos sobre Ventas
+  4.2.01 Otros Productos / Productos Financieros
+  5.1.04 Descuentos sobre Compras
+- El sistema las asegura automaticamente al iniciar.
+- Tambien se actualizaron database/schema.sql y database/data.sql para la entrega.

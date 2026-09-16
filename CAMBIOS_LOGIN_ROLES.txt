@@ -1,0 +1,23 @@
+VERSION: LOGIN + ROLES + DETALLE DE ASIENTOS
+
+Se agregó:
+1. Login funcional con contraseñas protegidas mediante PBKDF2-HMAC-SHA256.
+2. Roles:
+   - ADMINISTRADOR
+   - CONTABLE
+   - CONSULTA / AUDITOR
+3. Menú condicionado por permisos.
+4. Administración de usuarios visible solo para ADMINISTRADOR.
+5. Libro Diario con botón "Ver asiento" y doble clic sobre una línea.
+6. Modal de detalle del asiento con todas sus líneas.
+7. ADMINISTRADOR puede editar asientos MANUALES.
+8. Asientos AUTOMÁTICOS permanecen de solo lectura para proteger la integridad
+   entre operación, asiento y Kardex.
+9. Script database/003_login_roles.sql para actualizar una base existente.
+
+Credenciales iniciales de demostración:
+admin     / Admin123!
+contable  / Contable123!
+consulta  / Consulta123!
+
+La aplicación crea las tablas/usuarios iniciales automáticamente si no existen.
