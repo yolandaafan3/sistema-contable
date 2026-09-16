@@ -1,0 +1,12 @@
+VERSIÓN DE PRESENTACIÓN - SISTEMA CONTABLE
+
+Esta versión elimina referencias y valores prellenados de ejercicios específicos.
+Los formularios reciben datos libres y pueden utilizarse con distintos casos contables.
+
+Mejoras de interfaz:
+- Los formularios modales permiten desplazamiento vertical cuando el contenido no cabe en pantalla.
+- Los botones principales y secundarios mantienen contraste visible en Windows.
+- Los mensajes de ayuda son genéricos y no dependen de una guía o ejercicio concreto.
+
+La lógica contable, Kardex PEPS, Libro Diario, Mayorización, Balance de Comprobación,
+Estado de Resultados, Balance General, Catálogo y configuración de IVA se mantienen.

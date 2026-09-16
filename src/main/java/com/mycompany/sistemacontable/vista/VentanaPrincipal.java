@@ -1,5 +1,8 @@
 package com.mycompany.sistemacontable.vista;
 
+import com.mycompany.sistemacontable.modelo.Usuario;
+import com.mycompany.sistemacontable.servicio.SesionUsuario;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -43,6 +46,8 @@ public class VentanaPrincipal extends JFrame {
     private final Color COLOR_SECUNDARIO =
             new Color(100, 116, 139);
 
+    private final Usuario usuarioActual;
+
     private final CardLayout cardLayout;
     private final JPanel panelContenido;
     private final Map<String, JButton> botonesMenu;
@@ -55,8 +60,11 @@ public class VentanaPrincipal extends JFrame {
     private PanelBalanceGeneral panelBalanceGeneral;
     private PanelKardexPeps panelKardexPeps;
     private PanelConfiguracion panelConfiguracion;
+    private PanelUsuarios panelUsuarios;
 
-    public VentanaPrincipal() {
+    public VentanaPrincipal(Usuario usuarioActual) {
+
+        this.usuarioActual = usuarioActual;
 
         cardLayout =
                 new CardLayout();
@@ -230,11 +238,13 @@ public class VentanaPrincipal extends JFrame {
                 "Dashboard"
         );
 
-        agregarBotonMenu(
-                panel,
-                "OPERACIONES",
-                "Operaciones"
-        );
+        if (SesionUsuario.puedeRegistrarOperaciones()) {
+            agregarBotonMenu(
+                    panel,
+                    "OPERACIONES",
+                    "Operaciones"
+            );
+        }
 
         agregarBotonMenu(
                 panel,
@@ -272,21 +282,44 @@ public class VentanaPrincipal extends JFrame {
                 "Kardex PEPS"
         );
 
-        agregarBotonMenu(
-                panel,
-                "CATALOGO",
-                "Catálogo de Cuentas"
-        );
+        if (SesionUsuario.esAdministrador()) {
+            agregarBotonMenu(
+                    panel,
+                    "CATALOGO",
+                    "Catálogo de Cuentas"
+            );
 
-        agregarBotonMenu(
-                panel,
-                "CONFIGURACION",
-                "Configuración"
-        );
+            agregarBotonMenu(
+                    panel,
+                    "CONFIGURACION",
+                    "Configuración"
+            );
+
+            agregarBotonMenu(
+                    panel,
+                    "USUARIOS",
+                    "Usuarios y Roles"
+            );
+        }
 
         panel.add(
                 Box.createVerticalGlue()
         );
+
+        JLabel sesion = new JLabel(
+                "<html><b>" + usuarioActual.getNombreCompleto() + "</b><br>"
+                + usuarioActual.getRolNombre() + "</html>"
+        );
+        sesion.setForeground(new Color(190, 200, 214));
+        sesion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        sesion.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(sesion);
+        panel.add(Box.createVerticalStrut(10));
+
+        JButton cerrarSesion = crearBotonMenu("Cerrar sesión");
+        cerrarSesion.addActionListener(e -> cerrarSesion());
+        panel.add(cerrarSesion);
+        panel.add(Box.createVerticalStrut(14));
 
         JLabel version =
                 new JLabel(
@@ -560,7 +593,7 @@ public class VentanaPrincipal extends JFrame {
 
         JLabel empresa =
                 new JLabel(
-                        "Empresa de Electrodomésticos"
+                        usuarioActual.getNombreCompleto() + " · " + usuarioActual.getRolNombre()
                 );
 
         empresa.setFont(
@@ -604,7 +637,7 @@ public class VentanaPrincipal extends JFrame {
         );
 
         panelLibroDiario =
-                new PanelLibroDiario();
+                new PanelLibroDiario(SesionUsuario.puedeEditarAsientos());
 
         panelContenido.add(
                 panelLibroDiario,
@@ -663,6 +696,11 @@ public class VentanaPrincipal extends JFrame {
                 panelConfiguracion,
                 "CONFIGURACION"
         );
+
+        if (SesionUsuario.esAdministrador()) {
+            panelUsuarios = new PanelUsuarios();
+            panelContenido.add(panelUsuarios, "USUARIOS");
+        }
     }
 
     private JPanel crearDashboard() {
@@ -1204,6 +1242,8 @@ public class VentanaPrincipal extends JFrame {
             panelKardexPeps.cargarKardex();
         } else if ("CONFIGURACION".equals(nombre) && panelConfiguracion != null) {
             panelConfiguracion.cargarConfiguracion();
+        } else if ("USUARIOS".equals(nombre) && panelUsuarios != null) {
+            panelUsuarios.cargar();
         }
 
         cardLayout.show(
@@ -1244,6 +1284,18 @@ public class VentanaPrincipal extends JFrame {
                         )
                 );
             }
+        }
+    }
+
+
+    private void cerrarSesion() {
+        int op = javax.swing.JOptionPane.showConfirmDialog(
+                this, "¿Deseas cerrar la sesión actual?", "Cerrar sesión",
+                javax.swing.JOptionPane.YES_NO_OPTION, javax.swing.JOptionPane.QUESTION_MESSAGE);
+        if (op == javax.swing.JOptionPane.YES_OPTION) {
+            SesionUsuario.cerrar();
+            dispose();
+            new VentanaLogin().setVisible(true);
         }
     }
 }
