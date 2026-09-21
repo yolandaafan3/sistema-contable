@@ -1,0 +1,40 @@
+OPCION MANUAL EN SQLYOG / MYSQL WORKBENCH
+
+1. Selecciona la base sistema_contable.
+2. Ejecuta database/003_login_roles.sql completo.
+3. Verifica:
+
+   SELECT r.codigo, r.nombre FROM roles r ORDER BY r.id_rol;
+
+   SELECT u.usuario, u.nombre_completo, r.codigo AS rol, u.activo
+   FROM usuarios u
+   INNER JOIN roles r ON r.id_rol = u.id_rol
+   ORDER BY u.id_usuario;
+
+USUARIOS INICIALES
+- admin / Admin123!       -> ADMINISTRADOR
+- contable / Contable123! -> CONTABLE
+- consulta / Consulta123! -> CONSULTA
+
+IMPORTANTE
+La aplicación también ejecuta automáticamente CREATE TABLE IF NOT EXISTS e INSERT IGNORE
+al iniciar, así que el script es útil para entregar/documentar o preparar la base manualmente.
+
+PERMISOS
+ADMINISTRADOR:
+- Todo el sistema.
+- Catálogo de cuentas.
+- Configuración e IVA.
+- Usuarios y roles.
+- Puede editar asientos MANUALES desde Libro Diario.
+- Los asientos AUTOMÁTICOS son de solo lectura para evitar desincronizar operaciones/Kardex.
+
+CONTABLE:
+- Registra operaciones y asientos manuales.
+- Consulta Libro Diario, Mayorización, Balance de Comprobación,
+  Estado de Resultados, Balance General y Kardex.
+- No administra catálogo, IVA ni usuarios.
+
+CONSULTA / AUDITOR:
+- Solo lectura: Dashboard, Libro Diario y reportes.
+- No registra operaciones ni modifica configuración.

@@ -69,11 +69,14 @@ public class EstadoResultadosService {
         //         - Inventario final del Kardex PEPS
         // =====================================================
 
+        // Solo compras de MERCADERÍA. Las compras de activos no forman
+        // parte del costo de ventas aunque en datos históricos hayan quedado
+        // registradas por error en la cuenta Compras.
         BigDecimal comprasBase =
-                obtenerDeudor(
-                        saldos,
-                        "COMPRAS"
-                );
+                estadoResultadosDAO.obtenerComprasMercaderia(
+                        periodo.getIdPeriodo()
+                )
+                .setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal inventarioInicial =
                 obtenerDeudor(
@@ -81,9 +84,11 @@ public class EstadoResultadosService {
                         "INVENTARIO"
                 );
 
+        // El inventario final debe venir del Kardex PEPS, no del saldo
+        // contable del inventario inicial. El Kardex refleja las capas que
+        // realmente quedan disponibles luego de compras, ventas y devoluciones.
         BigDecimal inventarioFinal =
-                kardexService
-                        .obtenerSaldoPepsActualizado()
+                kardexService.obtenerSaldoPepsActualizado()
                         .setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal compras =

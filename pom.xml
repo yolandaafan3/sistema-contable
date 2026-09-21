@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>25</maven.compiler.release>
+        <maven.compiler.release>17</maven.compiler.release>
         <exec.mainClass>
             com.mycompany.sistemacontable.SistemaContable
         </exec.mainClass>
@@ -21,6 +21,12 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <version>8.4.0</version>
+        </dependency>
+            <dependency>
+            <groupId>org.apache.poi</groupId><artifactId>poi-ooxml</artifactId><version>5.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId><artifactId>pdfbox</artifactId><version>3.0.5</version>
         </dependency>
     </dependencies>
 </project>

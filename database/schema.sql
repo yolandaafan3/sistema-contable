@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS empresa (
     nombre VARCHAR(150) NOT NULL,
     nit VARCHAR(30),
     nrc VARCHAR(30),
+    giro_comercial VARCHAR(150),
     direccion VARCHAR(255),
     telefono VARCHAR(30),
     correo VARCHAR(120),
@@ -73,6 +74,8 @@ CREATE TABLE IF NOT EXISTS productos (
     descripcion VARCHAR(255),
     costo_compra DECIMAL(18,2) NOT NULL DEFAULT 0.00,
     precio_venta DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+    costo_inicial DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
+    valor_inventario_inicial DECIMAL(18,2) NOT NULL DEFAULT 0.00,
     existencia_inicial DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     existencia_actual DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     activo BOOLEAN NOT NULL DEFAULT TRUE
@@ -90,6 +93,7 @@ CREATE TABLE IF NOT EXISTS operaciones (
     ) NOT NULL,
     concepto VARCHAR(255) NOT NULL,
     id_producto INT NULL,
+    id_operacion_origen INT NULL,
     cantidad DECIMAL(18,6) NULL,
     precio_unitario DECIMAL(18,6) NULL,
     subtotal DECIMAL(18,2) NOT NULL DEFAULT 0.00,
@@ -100,7 +104,9 @@ CREATE TABLE IF NOT EXISTS operaciones (
     CONSTRAINT fk_operacion_periodo
         FOREIGN KEY (id_periodo) REFERENCES periodos_contables(id_periodo),
     CONSTRAINT fk_operacion_producto
-        FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_operacion_origen
+        FOREIGN KEY (id_operacion_origen) REFERENCES operaciones(id_operacion)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS asientos_contables (
@@ -143,7 +149,7 @@ CREATE TABLE IF NOT EXISTS kardex (
     concepto VARCHAR(255) NOT NULL,
     unidades_entrada DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     unidades_salida DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
-    existencia DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
+    unidades_existencia DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     costo_unitario DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     costo_peps DECIMAL(18,6) NOT NULL DEFAULT 0.000000,
     saldo_deudor DECIMAL(18,2) NOT NULL DEFAULT 0.00,
@@ -170,6 +176,19 @@ CREATE TABLE IF NOT EXISTS capas_peps (
         FOREIGN KEY (id_kardex_entrada) REFERENCES kardex(id_kardex)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS detalle_consumo_peps (
+    id_consumo BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_operacion_salida INT NOT NULL,
+    id_capa INT NOT NULL,
+    cantidad DECIMAL(18,6) NOT NULL,
+    costo_unitario DECIMAL(18,6) NOT NULL,
+    fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_consumo_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_consumo_operacion FOREIGN KEY (id_operacion_salida) REFERENCES operaciones(id_operacion),
+    CONSTRAINT fk_consumo_capa FOREIGN KEY (id_capa) REFERENCES capas_peps(id_capa)
+) ENGINE=InnoDB;
+
 CREATE INDEX idx_operaciones_periodo_fecha
     ON operaciones(id_periodo, fecha);
 
@@ -184,3 +203,49 @@ CREATE INDEX idx_detalle_cuenta
 
 CREATE INDEX idx_kardex_producto_fecha
     ON kardex(id_producto, fecha);
+
+
+-- ============================================================
+-- SEGURIDAD: LOGIN Y ROLES
+-- ============================================================
+-- ============================================================
+-- MODULO DE LOGIN Y ROLES
+-- Ejecutar sobre la base existente sistema_contable
+-- ============================================================
+
+
+CREATE TABLE IF NOT EXISTS roles (
+    id_rol INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(30) NOT NULL UNIQUE,
+    nombre VARCHAR(80) NOT NULL,
+    descripcion VARCHAR(255),
+    activo BOOLEAN NOT NULL DEFAULT TRUE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    usuario VARCHAR(60) NOT NULL UNIQUE,
+    nombre_completo VARCHAR(150) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    id_rol INT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ultimo_acceso TIMESTAMP NULL,
+    CONSTRAINT fk_usuario_rol FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- SOPORTE DE CIERRE / APERTURA ENTRE PERIODOS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS inventario_apertura_lotes (
+    id_apertura_lote BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_periodo INT NOT NULL,
+    id_producto INT NOT NULL,
+    fecha_origen DATE NOT NULL,
+    cantidad DECIMAL(18,6) NOT NULL,
+    costo_unitario DECIMAL(18,6) NOT NULL,
+    orden_lote INT NOT NULL,
+    INDEX idx_apertura_lotes_periodo_producto(id_periodo,id_producto,orden_lote),
+    CONSTRAINT fk_apertura_lotes_periodo FOREIGN KEY(id_periodo) REFERENCES periodos_contables(id_periodo) ON DELETE CASCADE,
+    CONSTRAINT fk_apertura_lotes_producto FOREIGN KEY(id_producto) REFERENCES productos(id_producto)
+) ENGINE=InnoDB;

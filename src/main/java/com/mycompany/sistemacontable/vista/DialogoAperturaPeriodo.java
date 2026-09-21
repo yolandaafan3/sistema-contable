@@ -1,6 +1,8 @@
 package com.mycompany.sistemacontable.vista;
 
 import com.mycompany.sistemacontable.servicio.AperturaPeriodoService;
+import com.mycompany.sistemacontable.dao.ProductoDAO;
+import com.mycompany.sistemacontable.modelo.Producto;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -14,18 +16,21 @@ import java.awt.Insets;
 import java.awt.Window;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -41,6 +46,10 @@ public class DialogoAperturaPeriodo extends JDialog {
     private JSpinner spFecha;
     private JTextField txtEfectivo;
     private JTextField txtInventarioInicial;
+    private JComboBox<Producto> cmbProductoInventario;
+    private JTextField txtCostoInicial;
+    private JLabel lblUnidadesCalculadas;
+    private final ProductoDAO productoDAO = new ProductoDAO();
 
     private final Color COLOR_FONDO =
             new Color(245, 247, 250);
@@ -376,17 +385,83 @@ public class DialogoAperturaPeriodo extends JDialog {
                 crearCampoTexto();
 
         txtInventarioInicial.setText(
-                ""
+                "0.00"
         );
 
+        txtInventarioInicial.setEditable(true);
+
         txtInventarioInicial.setToolTipText(
-                "Ingresa el valor contable del inventario al inicio del período."
+                "Ingresa manualmente el valor monetario del inventario inicial. Se sumará al efectivo para calcular el Capital Social."
         );
 
         tarjeta.add(
                 txtInventarioInicial,
                 gbc
         );
+
+        gbc.gridy++;
+        gbc.insets = new Insets(20, 0, 8, 0);
+        tarjeta.add(crearEtiqueta("Producto del inventario inicial"), gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        cmbProductoInventario = new JComboBox<>();
+        cmbProductoInventario.setPreferredSize(new Dimension(200, 40));
+        try {
+            List<Producto> productos = productoDAO.listarProductosActivos();
+            for (Producto p : productos) cmbProductoInventario.addItem(p);
+        } catch (Exception ignored) {
+        }
+        tarjeta.add(cmbProductoInventario, gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(20, 0, 8, 0);
+        tarjeta.add(crearEtiqueta("Costo unitario inicial ($)"), gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        txtCostoInicial = crearCampoTexto();
+        txtCostoInicial.setToolTipText("Costo por unidad del inventario inicial. Este valor no lleva IVA.");
+        tarjeta.add(txtCostoInicial, gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(10, 0, 0, 0);
+        lblUnidadesCalculadas = new JLabel("Unidades iniciales calculadas: 0");
+        lblUnidadesCalculadas.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblUnidadesCalculadas.setForeground(COLOR_AZUL);
+        tarjeta.add(lblUnidadesCalculadas, gbc);
+
+        Runnable actualizarCostoYUnidades = () -> {
+            Producto seleccionado = (Producto) cmbProductoInventario.getSelectedItem();
+            if (seleccionado != null && (txtCostoInicial.getText() == null || txtCostoInicial.getText().isBlank())) {
+                BigDecimal costo = seleccionado.getCostoInicial();
+                if (costo != null && costo.compareTo(BigDecimal.ZERO) > 0) {
+                    txtCostoInicial.setText(costo.setScale(2, RoundingMode.HALF_UP).toPlainString());
+                }
+            }
+            actualizarUnidadesCalculadas();
+        };
+
+        cmbProductoInventario.addActionListener(e -> {
+            Producto seleccionado = (Producto) cmbProductoInventario.getSelectedItem();
+            if (seleccionado != null) {
+                BigDecimal costo = seleccionado.getCostoInicial();
+                txtCostoInicial.setText(costo != null && costo.compareTo(BigDecimal.ZERO) > 0
+                        ? costo.setScale(2, RoundingMode.HALF_UP).toPlainString() : "");
+            }
+            actualizarUnidadesCalculadas();
+        });
+        txtInventarioInicial.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+        });
+        txtCostoInicial.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
+        });
+        actualizarCostoYUnidades.run();
 
         gbc.gridy++;
 
@@ -404,12 +479,11 @@ public class DialogoAperturaPeriodo extends JDialog {
                         + "<div style='width:520px;'>"
                         + "<b>Registro de apertura:</b>"
                         + "<br><br>"
-                        + "El efectivo y el inventario inicial se registran al Debe. "
-                        + "El sistema calcula automáticamente el Capital Social "
-                        + "necesario para cuadrar la partida."
-                        + "<br><br>"
-                        + "Las unidades del inventario para el Kardex se calculan "
-                        + "automáticamente con la configuración vigente del producto."
+                        + "La apertura registra Caja e Inventario al Debe y Capital Social al Haber. "
+                        + "Capital Social = Efectivo inicial + Inventario inicial. "
+                        + "Si existe inventario inicial, selecciona el producto y su costo unitario. "
+                        + "El sistema calculará las unidades como Valor del inventario ÷ Costo unitario, "
+                        + "creará el movimiento y la capa PEPS inicial sin aplicar IVA."
                         + "</div>"
                         + "</html>"
                 );
@@ -796,6 +870,29 @@ public class DialogoAperturaPeriodo extends JDialog {
         return boton;
     }
 
+    private void actualizarUnidadesCalculadas() {
+        if (lblUnidadesCalculadas == null) return;
+        try {
+            String invTxt = txtInventarioInicial == null ? "" : txtInventarioInicial.getText().trim().replace(',', '.');
+            String costoTxt = txtCostoInicial == null ? "" : txtCostoInicial.getText().trim().replace(',', '.');
+            if (invTxt.isBlank() || costoTxt.isBlank()) {
+                lblUnidadesCalculadas.setText("Unidades iniciales calculadas: 0");
+                return;
+            }
+            BigDecimal inventario = new BigDecimal(invTxt);
+            BigDecimal costo = new BigDecimal(costoTxt);
+            if (inventario.compareTo(BigDecimal.ZERO) <= 0 || costo.compareTo(BigDecimal.ZERO) <= 0) {
+                lblUnidadesCalculadas.setText("Unidades iniciales calculadas: 0");
+                return;
+            }
+            BigDecimal unidades = inventario.divide(costo, 0, RoundingMode.HALF_UP);
+            lblUnidadesCalculadas.setText("Unidades iniciales calculadas: "
+                    + unidades.stripTrailingZeros().toPlainString());
+        } catch (Exception e) {
+            lblUnidadesCalculadas.setText("Unidades iniciales calculadas: —");
+        }
+    }
+
     private void registrarApertura() {
 
         try {
@@ -814,8 +911,26 @@ public class DialogoAperturaPeriodo extends JDialog {
             BigDecimal inventario =
                     convertirDecimal(
                             txtInventarioInicial.getText(),
-                            "valor del inventario inicial"
+                            "inventario inicial"
                     );
+
+            if (inventario.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("El inventario inicial no puede ser negativo.");
+            }
+
+            Producto productoInventario = (Producto) cmbProductoInventario.getSelectedItem();
+            BigDecimal costoInicial = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal unidadesIniciales = BigDecimal.ZERO.setScale(6, RoundingMode.HALF_UP);
+            if (inventario.compareTo(BigDecimal.ZERO) > 0) {
+                if (productoInventario == null) {
+                    throw new IllegalArgumentException("Selecciona el producto del inventario inicial.");
+                }
+                costoInicial = convertirDecimal(txtCostoInicial.getText(), "costo unitario inicial");
+                if (costoInicial.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException("El costo unitario inicial debe ser mayor que cero.");
+                }
+                unidadesIniciales = inventario.divide(costoInicial, 0, RoundingMode.HALF_UP);
+            }
 
             BigDecimal capital =
                     efectivo.add(
@@ -831,14 +946,20 @@ public class DialogoAperturaPeriodo extends JDialog {
                             Caja: $%,.2f
                             Inventario inicial: $%,.2f
                             Capital Social: $%,.2f
+                            Producto: %s
+                            Costo unitario inicial: $%,.2f
+                            Unidades iniciales: %s
 
-                            Esto generará el Asiento N.º 1.
+                            Esto generará el Asiento N.º 1 y, si hay inventario, su capa PEPS inicial.
 
                             ¿Deseas continuar?
                             """.formatted(
                                     efectivo,
                                     inventario,
-                                    capital
+                                    capital,
+                                    productoInventario == null ? "—" : productoInventario.toString(),
+                                    costoInicial,
+                                    unidadesIniciales.stripTrailingZeros().toPlainString()
                             ),
                             "Confirmar apertura",
                             JOptionPane.YES_NO_OPTION,
@@ -855,7 +976,9 @@ public class DialogoAperturaPeriodo extends JDialog {
                     aperturaService.registrarApertura(
                             fecha,
                             efectivo,
-                            inventario
+                            inventario,
+                            productoInventario == null ? null : productoInventario.getIdProducto(),
+                            costoInicial
                     );
 
             JOptionPane.showMessageDialog(

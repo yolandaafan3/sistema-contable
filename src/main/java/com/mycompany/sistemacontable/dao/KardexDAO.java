@@ -214,18 +214,21 @@ public class KardexDAO {
 
         String sql = """
                 SELECT
-                    id_capa,
-                    id_producto,
-                    id_kardex_entrada,
-                    fecha,
-                    cantidad_original,
-                    cantidad_disponible,
-                    costo_unitario
-                FROM capas_peps
-                WHERE id_producto = ?
-                  AND cantidad_disponible > 0
-                  AND fecha <= ?
-                ORDER BY fecha ASC, id_capa ASC
+                    cp.id_capa,
+                    cp.id_producto,
+                    cp.id_kardex_entrada,
+                    cp.fecha,
+                    cp.cantidad_original,
+                    cp.cantidad_disponible,
+                    cp.costo_unitario
+                FROM capas_peps cp
+                INNER JOIN kardex k ON k.id_kardex=cp.id_kardex_entrada
+                INNER JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+                WHERE cp.id_producto = ?
+                  AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
+                  AND cp.cantidad_disponible > 0
+                  AND cp.fecha <= ?
+                ORDER BY cp.fecha ASC, cp.id_capa ASC
                 FOR UPDATE
                 """;
 
@@ -356,13 +359,16 @@ public class KardexDAO {
                 SELECT
                     COALESCE(
                         SUM(
-                            cantidad_disponible
-                            * costo_unitario
+                            cp.cantidad_disponible
+                            * cp.costo_unitario
                         ),
                         0
                     ) AS saldo
-                FROM capas_peps
-                WHERE id_producto = ?
+                FROM capas_peps cp
+                INNER JOIN kardex k ON k.id_kardex=cp.id_kardex_entrada
+                INNER JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+                WHERE cp.id_producto = ?
+                  AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
                 """;
 
         try (
@@ -412,14 +418,17 @@ public class KardexDAO {
             SELECT
                 COALESCE(
                     SUM(
-                        cantidad_disponible
-                        * costo_unitario
+                        cp.cantidad_disponible
+                        * cp.costo_unitario
                     ),
                     0
                 ) AS saldo
-            FROM capas_peps
-            WHERE id_producto = ?
-              AND fecha <= ?
+            FROM capas_peps cp
+            INNER JOIN kardex k ON k.id_kardex=cp.id_kardex_entrada
+            INNER JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+            WHERE cp.id_producto = ?
+              AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
+              AND cp.fecha <= ?
             """;
 
     try (
@@ -467,8 +476,11 @@ public class KardexDAO {
 ) throws SQLException {
 
     String sql = """
-            DELETE FROM capas_peps
-            WHERE id_producto = ?
+            DELETE cp FROM capas_peps cp
+            INNER JOIN kardex k ON k.id_kardex=cp.id_kardex_entrada
+            INNER JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+            WHERE cp.id_producto = ?
+              AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
             """;
 
     try (
@@ -492,8 +504,10 @@ public void eliminarMovimientosProducto(
 ) throws SQLException {
 
     String sql = """
-            DELETE FROM kardex
-            WHERE id_producto = ?
+            DELETE k FROM kardex k
+            INNER JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+            WHERE k.id_producto = ?
+              AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
             """;
 
     try (
@@ -674,9 +688,10 @@ public java.util.List<MovimientoKardex> listarMovimientos(
                 k.saldo_acreedor,
                 k.saldo
             FROM kardex k
-            LEFT JOIN asientos_contables a
+            INNER JOIN asientos_contables a
                 ON a.id_asiento = k.id_asiento
             WHERE k.id_producto = ?
+              AND a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
             ORDER BY k.fecha ASC, k.id_kardex ASC
             """;
 
@@ -716,4 +731,113 @@ public java.util.List<MovimientoKardex> listarMovimientos(
 
     return movimientos;
 }
+    public List<CapaPeps> listarCapasTodas(
+            int idProducto,
+            Connection conexion
+    ) throws SQLException {
+        List<CapaPeps> capas = new ArrayList<>();
+        String sql = """
+                SELECT cp.id_capa,cp.id_producto,cp.id_kardex_entrada,cp.fecha,
+                       cp.cantidad_original,cp.cantidad_disponible,cp.costo_unitario
+                FROM capas_peps cp
+                INNER JOIN kardex k
+                    ON k.id_kardex = cp.id_kardex_entrada
+                INNER JOIN asientos_contables a
+                    ON a.id_asiento = k.id_asiento
+                WHERE cp.id_producto = ?
+                  AND a.id_periodo = (
+                      SELECT id_periodo
+                      FROM periodos_contables
+                      WHERE estado='ABIERTO'
+                      ORDER BY id_periodo DESC
+                      LIMIT 1
+                  )
+                ORDER BY cp.fecha ASC, cp.id_capa ASC
+                """;
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idProducto);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    CapaPeps c = new CapaPeps();
+                    c.setIdCapa(rs.getInt("id_capa"));
+                    c.setIdProducto(rs.getInt("id_producto"));
+                    c.setIdKardexEntrada(rs.getInt("id_kardex_entrada"));
+                    c.setFecha(rs.getDate("fecha").toLocalDate());
+                    c.setCantidadOriginal(rs.getBigDecimal("cantidad_original"));
+                    c.setCantidadDisponible(rs.getBigDecimal("cantidad_disponible"));
+                    c.setCostoUnitario(rs.getBigDecimal("costo_unitario"));
+                    capas.add(c);
+                }
+            }
+        }
+        return capas;
+    }
+
+    public CapaPeps buscarCapaPorOperacionEntrada(
+            int idProducto, int idOperacion, Connection conexion
+    ) throws SQLException {
+        String sql = """
+                SELECT cp.id_capa, cp.id_producto, cp.id_kardex_entrada, cp.fecha,
+                       cp.cantidad_original, cp.cantidad_disponible, cp.costo_unitario
+                FROM capas_peps cp
+                JOIN kardex k ON k.id_kardex = cp.id_kardex_entrada
+                JOIN asientos_contables a ON a.id_asiento = k.id_asiento
+                WHERE cp.id_producto=? AND a.id_operacion=?
+                ORDER BY cp.id_capa LIMIT 1
+                FOR UPDATE
+                """;
+        try (PreparedStatement ps=conexion.prepareStatement(sql)) {
+            ps.setInt(1,idProducto); ps.setInt(2,idOperacion);
+            try(ResultSet rs=ps.executeQuery()) {
+                if(!rs.next()) return null;
+                CapaPeps c=new CapaPeps();
+                c.setIdCapa(rs.getInt("id_capa")); c.setIdProducto(rs.getInt("id_producto"));
+                c.setIdKardexEntrada(rs.getInt("id_kardex_entrada")); c.setFecha(rs.getDate("fecha").toLocalDate());
+                c.setCantidadOriginal(rs.getBigDecimal("cantidad_original"));
+                c.setCantidadDisponible(rs.getBigDecimal("cantidad_disponible"));
+                c.setCostoUnitario(rs.getBigDecimal("costo_unitario"));
+                return c;
+            }
+        }
+    }
+
+    public MovimientoKardex buscarMovimientoPorOperacion(
+            int idProducto, int idOperacion, Connection conexion
+    ) throws SQLException {
+        String sql = """
+                SELECT k.* FROM kardex k
+                JOIN asientos_contables a ON a.id_asiento=k.id_asiento
+                WHERE k.id_producto=? AND a.id_operacion=?
+                ORDER BY k.id_kardex DESC LIMIT 1
+                """;
+        try(PreparedStatement ps=conexion.prepareStatement(sql)) {
+            ps.setInt(1,idProducto); ps.setInt(2,idOperacion);
+            try(ResultSet rs=ps.executeQuery()) {
+                if(!rs.next()) return null;
+                MovimientoKardex m=new MovimientoKardex();
+                m.setIdKardex(rs.getInt("id_kardex")); m.setIdProducto(rs.getInt("id_producto"));
+                int a=rs.getInt("id_asiento"); m.setIdAsiento(rs.wasNull()?null:a);
+                m.setFecha(rs.getDate("fecha").toLocalDate()); m.setConcepto(rs.getString("concepto"));
+                m.setUnidadesEntrada(rs.getBigDecimal("unidades_entrada")); m.setUnidadesSalida(rs.getBigDecimal("unidades_salida"));
+                m.setUnidadesExistencia(rs.getBigDecimal("unidades_existencia")); m.setCostoUnitario(rs.getBigDecimal("costo_unitario"));
+                m.setCostoPeps(rs.getBigDecimal("costo_peps")); m.setSaldoDeudor(rs.getBigDecimal("saldo_deudor"));
+                m.setSaldoAcreedor(rs.getBigDecimal("saldo_acreedor")); m.setSaldo(rs.getBigDecimal("saldo"));
+                return m;
+            }
+        }
+    }
+
+    public void eliminarConsumosProducto(int idProducto, Connection conexion) throws SQLException {
+        try (PreparedStatement ps=conexion.prepareStatement("DELETE d FROM detalle_consumo_peps d INNER JOIN operaciones o ON o.id_operacion=d.id_operacion_salida WHERE d.id_producto=? AND o.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)")) {
+            ps.setInt(1,idProducto); ps.executeUpdate();
+        }
+    }
+
+    public void insertarConsumoPeps(int idProducto,int idOperacionSalida,int idCapa,BigDecimal cantidad,BigDecimal costoUnitario,Connection conexion) throws SQLException {
+        String sql="INSERT INTO detalle_consumo_peps(id_producto,id_operacion_salida,id_capa,cantidad,costo_unitario) VALUES(?,?,?,?,?)";
+        try(PreparedStatement ps=conexion.prepareStatement(sql)){
+            ps.setInt(1,idProducto);ps.setInt(2,idOperacionSalida);ps.setInt(3,idCapa);ps.setBigDecimal(4,cantidad);ps.setBigDecimal(5,costoUnitario);ps.executeUpdate();
+        }
+    }
+
 }

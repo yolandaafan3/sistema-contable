@@ -7,6 +7,7 @@ public class OperacionInventarioRecalculo {
 
     private int idOperacion;
     private int idAsiento;
+    private Integer idOperacionOrigen;
 
     private LocalDate fecha;
 
@@ -28,6 +29,9 @@ public class OperacionInventarioRecalculo {
     public void setIdOperacion(int idOperacion) {
         this.idOperacion = idOperacion;
     }
+
+    public Integer getIdOperacionOrigen() { return idOperacionOrigen; }
+    public void setIdOperacionOrigen(Integer v) { idOperacionOrigen = v; }
 
     public int getIdAsiento() {
         return idAsiento;

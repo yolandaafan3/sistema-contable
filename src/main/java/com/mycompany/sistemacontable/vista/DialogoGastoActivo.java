@@ -420,7 +420,7 @@ public class DialogoGastoActivo extends JDialog {
 
         spFecha =
                 new JSpinner(
-                        new SpinnerDateModel()
+                        DialogoUIUtils.crearModeloFechaPeriodoActivo()
                 );
 
 

@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class RecalculoKardexService {
 
@@ -81,6 +82,8 @@ public class RecalculoKardexService {
         // LIMPIAR KARDEX Y CAPAS PEPS
         // =====================================================
 
+        kardexDAO.eliminarConsumosProducto(idProducto, conexion);
+
         kardexDAO.eliminarCapasProducto(
                 idProducto,
                 conexion
@@ -118,194 +121,78 @@ public class RecalculoKardexService {
 
 
         // =====================================================
-        // INVENTARIO INICIAL
+        // INVENTARIO INICIAL DEL PERIODO
         // =====================================================
+        // Si el período fue creado por cierre/arrastre, reconstruimos cada
+        // capa PEPS histórica por separado. Si no existen capas de apertura,
+        // usamos el inventario inicial manual configurado en el producto.
 
-        BigDecimal existenciaInicial =
-                normalizar(
-                        producto.getExistenciaInicial()
-                );
-
-
-        if (existenciaInicial.compareTo(
-                BigDecimal.ZERO
-        ) > 0) {
-
-            LocalDate fechaInicio =
-                    operacionInventarioDAO
-                            .obtenerFechaInicioSistema(
-                                    conexion
-                            );
-
-
-            if (fechaInicio == null) {
-
-                throw new SQLException(
-                        "No existe un periodo contable para "
-                        + "registrar el inventario inicial."
-                );
-            }
-
-
-            DatosInventarioInicial datosInicial =
-                    obtenerDatosInventarioInicial(
-                            fechaInicio,
-                            conexion
-                    );
-
-
-            BigDecimal montoContableInicial =
-                    datosInicial.monto;
-
-
-            if (montoContableInicial == null
-                    ||
-                montoContableInicial.compareTo(
-                        BigDecimal.ZERO
-                ) <= 0) {
-
-                ResultadoIVA resultadoUnitario =
-                        ivaService.calcular(
-                                producto.getCostoCompra()
-                        );
-
-
-                BigDecimal costoUnitarioFallback =
-                        resultadoUnitario
-                                .getSubtotal()
-                                .setScale(
-                                        2,
-                                        RoundingMode.HALF_UP
-                                );
-
-
-                montoContableInicial =
-                        costoUnitarioFallback
-                                .multiply(
-                                        existenciaInicial
-                                )
-                                .setScale(
-                                        2,
-                                        RoundingMode.HALF_UP
-                                );
-            }
-
-
-            /*
-             * El Kardex trabaja el costo unitario redondeado a centavos.
-             * El valor contable de apertura permanece exactamente como fue
-             * registrado por el usuario; cualquier diferencia de redondeo
-             * corresponde únicamente al cálculo auxiliar del Kardex.
-             */
-
-            BigDecimal costoUnitarioInicial =
-                    montoContableInicial.divide(
-                            existenciaInicial,
-                            2,
-                            RoundingMode.HALF_UP
-                    );
-
-
-            BigDecimal costoInicial =
-                    costoUnitarioInicial
-                            .multiply(
-                                    existenciaInicial
-                            )
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            existencia =
-                    existenciaInicial;
-
-
-            saldoInventario =
-                    costoInicial;
-
-
-            MovimientoKardex movimientoInicial =
-                    new MovimientoKardex();
-
-
-            movimientoInicial.setIdProducto(
-                    idProducto
-            );
-
-
-            movimientoInicial.setIdAsiento(
-                    datosInicial.idAsiento
-            );
-
-
-            movimientoInicial.setFecha(
-                    fechaInicio
-            );
-
-
-            movimientoInicial.setConcepto(
-                    "Inventario inicial"
-            );
-
-
-            movimientoInicial.setUnidadesEntrada(
-                    existenciaInicial
-            );
-
-
-            movimientoInicial.setUnidadesSalida(
-                    BigDecimal.ZERO
-            );
-
-
-            movimientoInicial.setUnidadesExistencia(
-                    existencia
-            );
-
-
-            movimientoInicial.setCostoUnitario(
-                    costoUnitarioInicial
-            );
-
-
-            movimientoInicial.setCostoPeps(
-                    costoUnitarioInicial
-            );
-
-
-            movimientoInicial.setSaldoDeudor(
-                    costoInicial
-            );
-
-
-            movimientoInicial.setSaldoAcreedor(
-                    BigDecimal.ZERO
-            );
-
-
-            movimientoInicial.setSaldo(
-                    saldoInventario
-            );
-
-
-            int idKardexInicial =
-                    kardexDAO.insertarMovimiento(
-                            movimientoInicial,
-                            conexion
-                    );
-
-
-            kardexDAO.insertarCapaPeps(
-                    idProducto,
-                    idKardexInicial,
-                    fechaInicio,
-                    existenciaInicial,
-                    costoUnitarioInicial,
-                    conexion
-            );
+        Integer idAsientoApertura = null;
+        LocalDate fechaApertura = null;
+        String sqlApertura = """
+                SELECT a.id_asiento, a.fecha
+                  FROM asientos_contables a
+                 WHERE a.id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
+                   AND a.estado='CONTABILIZADO'
+                   AND LOWER(a.concepto) LIKE 'apertura%'
+                 ORDER BY a.numero_asiento ASC
+                 LIMIT 1
+                """;
+        try (PreparedStatement ps = conexion.prepareStatement(sqlApertura); ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) { idAsientoApertura=rs.getInt(1); fechaApertura=rs.getDate(2).toLocalDate(); }
         }
 
+        boolean reconstruyoPorLotes = false;
+        try {
+            String q = """
+                    SELECT cantidad,costo_unitario
+                      FROM inventario_apertura_lotes
+                     WHERE id_periodo=(SELECT id_periodo FROM periodos_contables WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1)
+                       AND id_producto=?
+                     ORDER BY orden_lote,id_apertura_lote
+                    """;
+            try (PreparedStatement ps=conexion.prepareStatement(q)) {
+                ps.setInt(1,idProducto);
+                try (ResultSet rs=ps.executeQuery()) {
+                    while(rs.next()) {
+                        reconstruyoPorLotes=true;
+                        BigDecimal cantidad=normalizar(rs.getBigDecimal("cantidad"));
+                        BigDecimal costo=rs.getBigDecimal("costo_unitario").setScale(6,RoundingMode.HALF_UP);
+                        if(cantidad.signum()<=0 || costo.signum()<=0) continue;
+                        BigDecimal valor=cantidad.multiply(costo).setScale(2,RoundingMode.HALF_UP);
+                        existencia=existencia.add(cantidad);
+                        saldoInventario=saldoInventario.add(valor);
+                        if(idAsientoApertura!=null && fechaApertura!=null) {
+                            MovimientoKardex inicial=new MovimientoKardex();
+                            inicial.setIdProducto(idProducto); inicial.setIdAsiento(idAsientoApertura); inicial.setFecha(fechaApertura);
+                            inicial.setConcepto("Inventario inicial arrastrado - lote PEPS");
+                            inicial.setUnidadesEntrada(cantidad); inicial.setUnidadesSalida(BigDecimal.ZERO); inicial.setUnidadesExistencia(existencia);
+                            inicial.setCostoUnitario(costo); inicial.setCostoPeps(costo); inicial.setSaldoDeudor(valor); inicial.setSaldoAcreedor(BigDecimal.ZERO); inicial.setSaldo(saldoInventario);
+                            int idK=kardexDAO.insertarMovimiento(inicial,conexion);
+                            kardexDAO.insertarCapaPeps(idProducto,idK,fechaApertura,cantidad,costo,conexion);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            // Compatibilidad con instalaciones que todavía no han ejecutado la migración.
+            if (!ex.getMessage().toLowerCase().contains("inventario_apertura_lotes")) throw ex;
+        }
+
+        if(!reconstruyoPorLotes) {
+            BigDecimal cantidadInicial = normalizar(producto.getExistenciaInicial());
+            BigDecimal costoInicial = producto.getCostoInicial() == null ? BigDecimal.ZERO : producto.getCostoInicial().setScale(6, RoundingMode.HALF_UP);
+            if (cantidadInicial.compareTo(BigDecimal.ZERO) > 0 && costoInicial.compareTo(BigDecimal.ZERO) > 0 && idAsientoApertura!=null && fechaApertura!=null) {
+                BigDecimal valorKardexInicial = costoInicial.multiply(cantidadInicial).setScale(2, RoundingMode.HALF_UP);
+                existencia = cantidadInicial; saldoInventario = valorKardexInicial;
+                MovimientoKardex inicial = new MovimientoKardex();
+                inicial.setIdProducto(idProducto); inicial.setIdAsiento(idAsientoApertura); inicial.setFecha(fechaApertura); inicial.setConcepto("Inventario inicial");
+                inicial.setUnidadesEntrada(cantidadInicial); inicial.setUnidadesSalida(BigDecimal.ZERO); inicial.setUnidadesExistencia(cantidadInicial);
+                inicial.setCostoUnitario(costoInicial); inicial.setCostoPeps(costoInicial); inicial.setSaldoDeudor(valorKardexInicial); inicial.setSaldoAcreedor(BigDecimal.ZERO); inicial.setSaldo(valorKardexInicial);
+                int idKardexInicial = kardexDAO.insertarMovimiento(inicial, conexion);
+                kardexDAO.insertarCapaPeps(idProducto,idKardexInicial,fechaApertura,cantidadInicial,costoInicial,conexion);
+            }
+        }
 
         // =====================================================
         // RECORRER OPERACIONES CRONOLOGICAMENTE
@@ -448,84 +335,68 @@ public class RecalculoKardexService {
 
 
                     /*
-                     * La devolución sobre venta regresa al inventario
-                     * al costo unitario con el que salió la mercadería.
+                     * La devolución sobre venta es una ENTRADA al inventario.
+                     * Para conservar PEPS correctamente, se reconstruyen las
+                     * capas consumidas por la venta original, empezando por la
+                     * última capa que esa venta consumió. Así una devolución
+                     * parcial recupera exactamente el costo histórico que salió.
                      */
 
-                    BigDecimal costoUnitario =
-                            ultimoCostoUnitarioVenta;
-
-
-                    if (costoUnitario == null
-                            ||
-                        costoUnitario.compareTo(
-                                BigDecimal.ZERO
-                        ) <= 0) {
-
-                        ResultadoIVA resultadoUnitario =
-                                ivaService.calcular(
-                                        producto.getCostoCompra()
-                                );
-
-
-                        costoUnitario =
-                                resultadoUnitario
-                                        .getSubtotal()
-                                        .setScale(
-                                                2,
-                                                RoundingMode.HALF_UP
-                                        );
+                    if (operacion.getIdOperacionOrigen() == null) {
+                        throw new IllegalStateException(
+                                "La devolución sobre venta debe estar vinculada a una venta de origen."
+                        );
                     }
 
-
-                    BigDecimal costoEntrada =
-                            costoUnitario
-                                    .multiply(
-                                            cantidad
-                                    )
-                                    .setScale(
-                                            2,
-                                            RoundingMode.HALF_UP
-                                    );
-
-
-                    existencia =
-                            existencia.add(
-                                    cantidad
-                            );
-
-
-                    saldoInventario =
-                            saldoInventario.add(
-                                    costoEntrada
-                            )
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-                    int idKardex =
-                            registrarEntrada(
-                                    operacion,
-                                    idProducto,
-                                    cantidad,
-                                    existencia,
-                                    costoUnitario,
-                                    costoEntrada,
-                                    saldoInventario,
-                                    conexion
-                            );
-
-
-                    kardexDAO.insertarCapaPeps(
+                    List<RetornoPeps> retornos = obtenerRetornosVenta(
                             idProducto,
-                            idKardex,
-                            operacion.getFecha(),
+                            operacion.getIdOperacionOrigen(),
+                            operacion.getIdOperacion(),
                             cantidad,
-                            costoUnitario,
                             conexion
                     );
+
+                    BigDecimal costoEntrada = BigDecimal.ZERO;
+                    for (RetornoPeps retorno : retornos) {
+                        costoEntrada = costoEntrada.add(
+                                retorno.cantidad().multiply(retorno.costoUnitario())
+                        );
+                    }
+                    costoEntrada = costoEntrada.setScale(2, RoundingMode.HALF_UP);
+
+                    BigDecimal costoUnitario = costoEntrada
+                            .divide(cantidad, 2, RoundingMode.HALF_UP);
+
+                    existencia = existencia.add(cantidad);
+
+                    saldoInventario = saldoInventario
+                            .add(costoEntrada)
+                            .setScale(2, RoundingMode.HALF_UP);
+
+                    int idKardex = registrarEntrada(
+                            operacion,
+                            idProducto,
+                            cantidad,
+                            existencia,
+                            costoUnitario,
+                            costoEntrada,
+                            saldoInventario,
+                            conexion
+                    );
+
+                    // Una devolución puede abarcar más de una capa original.
+                    // El movimiento se muestra agregado, pero las capas se
+                    // restituyen separadas con su costo histórico exacto.
+                    for (RetornoPeps retorno : retornos) {
+                        kardexDAO.insertarCapaPeps(
+                                idProducto,
+                                idKardex,
+                                operacion.getFecha(),
+                                retorno.cantidad(),
+                                retorno.costoUnitario(),
+                                conexion
+                        );
+                    }
                 }
 
 
@@ -588,6 +459,7 @@ public class RecalculoKardexService {
                                 + operacion.getTipoOperacion()
                                 + " del "
                                 + operacion.getFecha()
+                                + " (operación #" + operacion.getIdOperacion() + ", " + operacion.getConcepto() + ")"
                                 + ". Existencia: "
                                 + existencia
                                 + " | Salida: "
@@ -600,13 +472,17 @@ public class RecalculoKardexService {
                     // CONSUMIR PEPS
                     // =============================================
 
-                    BigDecimal costoSalida =
-                            consumirPeps(
-                                    idProducto,
-                                    operacion.getFecha(),
-                                    cantidad,
-                                    conexion
-                            );
+                    BigDecimal costoSalida;
+                    if ("DEVOLUCION_COMPRA".equals(operacion.getTipoOperacion())
+                            && operacion.getIdOperacionOrigen() != null) {
+                        costoSalida = consumirCapaCompraOrigen(
+                                idProducto, operacion.getIdOperacion(), operacion.getIdOperacionOrigen(), cantidad, conexion
+                        );
+                    } else {
+                        costoSalida = consumirPeps(
+                                idProducto, operacion.getIdOperacion(), operacion.getFecha(), cantidad, conexion
+                        );
+                    }
 
 
                     BigDecimal costoUnitarioSalida =
@@ -700,6 +576,90 @@ public class RecalculoKardexService {
         );
     }
 
+
+
+    private List<RetornoPeps> obtenerRetornosVenta(
+            int idProducto,
+            int idOperacionVenta,
+            int idOperacionDevolucionActual,
+            BigDecimal cantidadDevolver,
+            Connection conexion
+    ) throws SQLException {
+
+        BigDecimal yaDevuelto = BigDecimal.ZERO;
+        String sqlDevuelto = """
+                SELECT COALESCE(SUM(cantidad), 0) AS cantidad_devuelta
+                FROM operaciones
+                WHERE id_producto = ?
+                  AND tipo_operacion = 'DEVOLUCION_VENTA'
+                  AND id_operacion_origen = ?
+                  AND id_operacion < ?
+                """;
+
+        try (PreparedStatement ps = conexion.prepareStatement(sqlDevuelto)) {
+            ps.setInt(1, idProducto);
+            ps.setInt(2, idOperacionVenta);
+            ps.setInt(3, idOperacionDevolucionActual);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BigDecimal valor = rs.getBigDecimal("cantidad_devuelta");
+                    if (valor != null) {
+                        yaDevuelto = valor;
+                    }
+                }
+            }
+        }
+
+        String sqlConsumos = """
+                SELECT id_consumo, cantidad, costo_unitario
+                FROM detalle_consumo_peps
+                WHERE id_producto = ?
+                  AND id_operacion_salida = ?
+                ORDER BY id_consumo DESC
+                """;
+
+        List<RetornoPeps> resultado = new ArrayList<>();
+        BigDecimal omitir = yaDevuelto;
+        BigDecimal pendiente = cantidadDevolver;
+
+        try (PreparedStatement ps = conexion.prepareStatement(sqlConsumos)) {
+            ps.setInt(1, idProducto);
+            ps.setInt(2, idOperacionVenta);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next() && pendiente.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal consumida = rs.getBigDecimal("cantidad");
+                    BigDecimal costo = rs.getBigDecimal("costo_unitario")
+                            .setScale(2, RoundingMode.HALF_UP);
+
+                    if (omitir.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal salto = consumida.min(omitir);
+                        consumida = consumida.subtract(salto);
+                        omitir = omitir.subtract(salto);
+                    }
+
+                    if (consumida.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+
+                    BigDecimal devolver = consumida.min(pendiente);
+                    resultado.add(new RetornoPeps(devolver, costo));
+                    pendiente = pendiente.subtract(devolver);
+                }
+            }
+        }
+
+        if (pendiente.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException(
+                    "La devolución supera las unidades pendientes de la venta de origen. "
+                    + "Pendiente sin asociar: " + pendiente.stripTrailingZeros().toPlainString()
+            );
+        }
+
+        return resultado;
+    }
+
+    private record RetornoPeps(BigDecimal cantidad, BigDecimal costoUnitario) {}
 
     // =========================================================
     // REGISTRAR ENTRADA
@@ -883,6 +843,7 @@ public class RecalculoKardexService {
 
     private BigDecimal consumirPeps(
             int idProducto,
+            int idOperacionSalida,
             LocalDate fecha,
             BigDecimal cantidad,
             Connection conexion
@@ -948,6 +909,10 @@ public class RecalculoKardexService {
                     conexion
             );
 
+            kardexDAO.insertarConsumoPeps(
+                    idProducto, idOperacionSalida, capa.getIdCapa(), tomar, capa.getCostoUnitario(), conexion
+            );
+
 
             pendiente =
                     pendiente.subtract(
@@ -977,6 +942,25 @@ public class RecalculoKardexService {
         );
     }
 
+
+    private BigDecimal consumirCapaCompraOrigen(
+            int idProducto, int idOperacionSalida, int idOperacionCompra, BigDecimal cantidad, Connection conexion
+    ) throws SQLException {
+        CapaPeps capa = kardexDAO.buscarCapaPorOperacionEntrada(idProducto, idOperacionCompra, conexion);
+        if (capa == null) {
+            throw new IllegalStateException("No se encontró el lote PEPS de la compra seleccionada.");
+        }
+        if (capa.getCantidadDisponible().compareTo(cantidad) < 0) {
+            throw new IllegalStateException(
+                    "La devolución supera las unidades todavía disponibles del lote de compra. "
+                    + "Disponibles: " + capa.getCantidadDisponible() + " | Devolución: " + cantidad
+            );
+        }
+        BigDecimal restante = capa.getCantidadDisponible().subtract(cantidad);
+        kardexDAO.actualizarCantidadDisponible(capa.getIdCapa(), restante, conexion);
+        kardexDAO.insertarConsumoPeps(idProducto, idOperacionSalida, capa.getIdCapa(), cantidad, capa.getCostoUnitario(), conexion);
+        return cantidad.multiply(capa.getCostoUnitario()).setScale(2, RoundingMode.HALF_UP);
+    }
 
     // =========================================================
     // DATOS DEL INVENTARIO INICIAL

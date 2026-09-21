@@ -13,6 +13,7 @@ public class Operacion {
     private String concepto;
 
     private Integer idProducto;
+    private Integer idOperacionOrigen;
 
     private BigDecimal cantidad;
     private BigDecimal precioUnitario;
@@ -86,6 +87,9 @@ public class Operacion {
     public void setConcepto(String concepto) {
         this.concepto = concepto;
     }
+
+    public Integer getIdOperacionOrigen() { return idOperacionOrigen; }
+    public void setIdOperacionOrigen(Integer v) { idOperacionOrigen = v; }
 
     public Integer getIdProducto() {
         return idProducto;

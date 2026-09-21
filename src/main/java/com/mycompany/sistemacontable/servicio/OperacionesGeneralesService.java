@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import java.time.LocalDate;
@@ -50,6 +52,54 @@ public class OperacionesGeneralesService {
     }
 
 
+    /**
+     * Saldo pendiente total de Clientes en el periodo activo.
+     * Es un saldo agregado porque el esquema actual no separa clientes individuales.
+     */
+    public BigDecimal obtenerSaldoClientesPendiente() {
+        return obtenerSaldoPendienteCuenta("1.1.02.01", true);
+    }
+
+    /**
+     * Saldo pendiente total de Proveedores en el periodo activo.
+     * Es un saldo agregado porque el esquema actual no separa proveedores individuales.
+     */
+    public BigDecimal obtenerSaldoProveedoresPendiente() {
+        return obtenerSaldoPendienteCuenta("2.1.01.01", false);
+    }
+
+    private BigDecimal obtenerSaldoPendienteCuenta(String codigoCuenta, boolean naturalezaDeudora) {
+        PeriodoContable periodo = periodoService.obtenerPeriodoActivo();
+        String expresion = naturalezaDeudora
+                ? "COALESCE(SUM(d.debe - d.haber), 0)"
+                : "COALESCE(SUM(d.haber - d.debe), 0)";
+
+        String sql = "SELECT " + expresion + " AS saldo "
+                + "FROM detalle_asientos d "
+                + "JOIN asientos_contables a ON a.id_asiento = d.id_asiento "
+                + "JOIN catalogo_cuentas c ON c.id_cuenta = d.id_cuenta "
+                + "WHERE a.id_periodo = ? AND a.estado = 'CONTABILIZADO' AND c.codigo = ?";
+
+        try (Connection conexion = Conexion.conectar();
+             PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, periodo.getIdPeriodo());
+            ps.setString(2, codigoCuenta);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BigDecimal saldo = rs.getBigDecimal("saldo");
+                    if (saldo == null || saldo.compareTo(BigDecimal.ZERO) < 0) {
+                        return BigDecimal.ZERO.setScale(2);
+                    }
+                    return saldo.setScale(2, RoundingMode.HALF_UP);
+                }
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("No se pudo calcular el saldo pendiente: " + e.getMessage(), e);
+        }
+
+        return BigDecimal.ZERO.setScale(2);
+    }
+
     // =====================================================
     // COBRO A CLIENTE
     // =====================================================
@@ -66,6 +116,17 @@ public class OperacionesGeneralesService {
                 monto,
                 medio
         );
+
+        BigDecimal saldoPendiente = obtenerSaldoClientesPendiente();
+        if (saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("No existe saldo pendiente en Clientes para cobrar.");
+        }
+        if (monto.compareTo(saldoPendiente) > 0) {
+            throw new IllegalArgumentException(
+                    "El cobro ($" + monto.setScale(2) + ") supera el saldo pendiente de Clientes ($"
+                    + saldoPendiente.setScale(2) + ")."
+            );
+        }
 
 
         Cuenta cuentaMedio =
@@ -123,6 +184,17 @@ public class OperacionesGeneralesService {
                 monto,
                 medio
         );
+
+        BigDecimal saldoPendiente = obtenerSaldoProveedoresPendiente();
+        if (saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("No existe saldo pendiente en Proveedores para pagar.");
+        }
+        if (monto.compareTo(saldoPendiente) > 0) {
+            throw new IllegalArgumentException(
+                    "El pago ($" + monto.setScale(2) + ") supera el saldo pendiente de Proveedores ($"
+                    + saldoPendiente.setScale(2) + ")."
+            );
+        }
 
 
         Cuenta proveedores =

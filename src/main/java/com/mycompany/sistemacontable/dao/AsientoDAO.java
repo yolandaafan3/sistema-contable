@@ -134,8 +134,12 @@ public class AsientoDAO {
             ) {
 
                 if (rs.next()) {
-
-                    return rs.getInt(1);
+                    int id = rs.getInt(1);
+                    String nuevo = "N° " + asiento.getNumeroAsiento() + " | fecha=" + asiento.getFecha()
+                            + " | concepto=" + asiento.getConcepto() + " | tipo=" + asiento.getTipoAsiento()
+                            + " | estado=" + asiento.getEstado();
+                    new AuditoriaDAO().registrarSiFalta(conexion, "ASIENTO", id, "CREO", null, nuevo);
+                    return id;
                 }
             }
         }
@@ -195,4 +199,63 @@ public class AsientoDAO {
             ps.executeUpdate();
         }
     }
+
+
+    public AsientoContable buscarPorId(int idAsiento) {
+        String sql = "SELECT id_asiento,id_periodo,id_operacion,numero_asiento,fecha,concepto,tipo_asiento,estado FROM asientos_contables WHERE id_asiento=?";
+        try (Connection cn = com.mycompany.sistemacontable.Conexion.conectar(); PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setInt(1, idAsiento);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    AsientoContable a = new AsientoContable();
+                    a.setIdAsiento(rs.getInt("id_asiento"));
+                    a.setIdPeriodo(rs.getInt("id_periodo"));
+                    int op = rs.getInt("id_operacion");
+                    a.setIdOperacion(rs.wasNull() ? null : op);
+                    a.setNumeroAsiento(rs.getInt("numero_asiento"));
+                    a.setFecha(rs.getDate("fecha").toLocalDate());
+                    a.setConcepto(rs.getString("concepto"));
+                    a.setTipoAsiento(rs.getString("tipo_asiento"));
+                    a.setEstado(rs.getString("estado"));
+                    return a;
+                }
+            }
+        } catch (SQLException e) { throw new RuntimeException("No se pudo consultar el asiento: " + e.getMessage(), e); }
+        return null;
+    }
+
+    public java.util.List<DetalleAsiento> listarDetalles(int idAsiento) {
+        java.util.List<DetalleAsiento> lista = new java.util.ArrayList<>();
+        String sql = "SELECT id_detalle,id_asiento,id_cuenta,descripcion,debe,haber FROM detalle_asientos WHERE id_asiento=? ORDER BY id_detalle";
+        try (Connection cn = com.mycompany.sistemacontable.Conexion.conectar(); PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setInt(1, idAsiento);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new DetalleAsiento(rs.getInt("id_detalle"), rs.getInt("id_asiento"), rs.getInt("id_cuenta"),
+                            rs.getString("descripcion"), rs.getBigDecimal("debe"), rs.getBigDecimal("haber")));
+                }
+            }
+        } catch (SQLException e) { throw new RuntimeException("No se pudieron consultar los detalles del asiento: " + e.getMessage(), e); }
+        return lista;
+    }
+
+    public void actualizarCabecera(int idAsiento, java.time.LocalDate fecha, String concepto, Connection conexion) throws SQLException {
+        String antes = null;
+        try (PreparedStatement q = conexion.prepareStatement("SELECT fecha,concepto,estado FROM asientos_contables WHERE id_asiento=?")) {
+            q.setInt(1,idAsiento); try(ResultSet r=q.executeQuery()){ if(r.next()) antes="fecha="+r.getDate(1)+" | concepto="+r.getString(2)+" | estado="+r.getString(3); }
+        }
+        String sql = "UPDATE asientos_contables SET fecha=?, concepto=? WHERE id_asiento=?";
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(fecha)); ps.setString(2, concepto); ps.setInt(3, idAsiento); ps.executeUpdate();
+        }
+        String despues="fecha="+fecha+" | concepto="+concepto;
+        new AuditoriaDAO().registrarSiFalta(conexion,"ASIENTO",idAsiento,"MODIFICO",antes,despues);
+    }
+
+    public void eliminarDetalles(int idAsiento, Connection conexion) throws SQLException {
+        try (PreparedStatement ps = conexion.prepareStatement("DELETE FROM detalle_asientos WHERE id_asiento=?")) {
+            ps.setInt(1, idAsiento); ps.executeUpdate();
+        }
+    }
+
 }

@@ -94,9 +94,12 @@ public class PanelBalanceComprobacion extends JPanel {
     }
 
     public final void cargarBalance() {
+        modelo.setRowCount(0);
+        lblTotales.setText("");
+        lblEstado.setText("Sin datos del período activo");
+        lblEstado.setForeground(SECUNDARIO);
         try {
             BalanceComprobacion b = service.generarBalance();
-            modelo.setRowCount(0);
             for (LineaBalanceComprobacion l : b.getLineas()) {
                 modelo.addRow(new Object[]{l.getCodigo(), l.getNombre(), dinero(l.getMovimientoDebe()), dinero(l.getMovimientoHaber()), dinero(l.getSaldoDeudor()), dinero(l.getSaldoAcreedor())});
             }

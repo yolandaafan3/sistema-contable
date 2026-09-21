@@ -43,6 +43,9 @@ public class DialogoCobroPago extends JDialog {
 
     private JSpinner spFecha;
     private JTextField txtMonto;
+    private JLabel lblSaldoPendiente;
+    private JButton btnUsarSaldoCompleto;
+    private BigDecimal saldoPendiente = BigDecimal.ZERO;
     private JComboBox<String> cmbMedio;
     private JTextArea txtConcepto;
 
@@ -90,6 +93,7 @@ public class DialogoCobroPago extends JDialog {
         configurarVentana();
 
         construirInterfaz();
+        cargarSaldoPendiente();
     }
 
 
@@ -323,7 +327,7 @@ public class DialogoCobroPago extends JDialog {
 
         spFecha =
                 new JSpinner(
-                        new SpinnerDateModel()
+                        DialogoUIUtils.crearModeloFechaPeriodoActivo()
                 );
 
         JSpinner.DateEditor editorFecha =
@@ -356,6 +360,34 @@ public class DialogoCobroPago extends JDialog {
                 gbc
         );
 
+
+        // =====================================================
+        // SALDO PENDIENTE
+        // =====================================================
+
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 7, 0);
+        tarjeta.add(crearEtiqueta(esCobroCliente()
+                ? "Saldo pendiente en Clientes"
+                : "Saldo pendiente en Proveedores"), gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 18, 0);
+        JPanel panelSaldo = new JPanel(new BorderLayout(10, 0));
+        panelSaldo.setOpaque(false);
+        lblSaldoPendiente = new JLabel("Calculando...");
+        lblSaldoPendiente.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblSaldoPendiente.setForeground(COLOR_PRIMARIO);
+        btnUsarSaldoCompleto = new JButton("Usar saldo completo");
+        configurarBotonSecundario(btnUsarSaldoCompleto);
+        btnUsarSaldoCompleto.addActionListener(e -> {
+            if (saldoPendiente.compareTo(BigDecimal.ZERO) > 0) {
+                txtMonto.setText(saldoPendiente.setScale(2, RoundingMode.HALF_UP).toPlainString());
+            }
+        });
+        panelSaldo.add(lblSaldoPendiente, BorderLayout.WEST);
+        panelSaldo.add(btnUsarSaldoCompleto, BorderLayout.EAST);
+        tarjeta.add(panelSaldo, gbc);
 
         // =====================================================
         // MONTO
@@ -678,6 +710,42 @@ public class DialogoCobroPago extends JDialog {
     }
 
 
+    private void cargarSaldoPendiente() {
+        try {
+            saldoPendiente = esCobroCliente()
+                    ? operacionesService.obtenerSaldoClientesPendiente()
+                    : operacionesService.obtenerSaldoProveedoresPendiente();
+
+            if (lblSaldoPendiente != null) {
+                lblSaldoPendiente.setText(String.format("$%,.2f", saldoPendiente));
+                lblSaldoPendiente.setForeground(
+                        saldoPendiente.compareTo(BigDecimal.ZERO) > 0
+                                ? COLOR_PRIMARIO
+                                : COLOR_SECUNDARIO
+                );
+            }
+            if (btnUsarSaldoCompleto != null) {
+                btnUsarSaldoCompleto.setEnabled(saldoPendiente.compareTo(BigDecimal.ZERO) > 0);
+            }
+            if (btnGuardar != null) {
+                btnGuardar.setEnabled(saldoPendiente.compareTo(BigDecimal.ZERO) > 0);
+            }
+        } catch (Exception e) {
+            saldoPendiente = BigDecimal.ZERO;
+            if (lblSaldoPendiente != null) {
+                lblSaldoPendiente.setText("No disponible");
+            }
+            if (btnUsarSaldoCompleto != null) btnUsarSaldoCompleto.setEnabled(false);
+            if (btnGuardar != null) btnGuardar.setEnabled(false);
+            JOptionPane.showMessageDialog(
+                    this,
+                    obtenerMensajeError(e),
+                    "No se pudo consultar el saldo pendiente",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        }
+    }
+
     private void guardar() {
 
         try {
@@ -687,6 +755,20 @@ public class DialogoCobroPago extends JDialog {
 
             BigDecimal monto =
                     obtenerMonto();
+
+            if (saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException(
+                        esCobroCliente()
+                                ? "No existe saldo pendiente en Clientes para cobrar."
+                                : "No existe saldo pendiente en Proveedores para pagar."
+                );
+            }
+            if (monto.compareTo(saldoPendiente) > 0) {
+                throw new IllegalArgumentException(
+                        "El monto ingresado ($" + monto.setScale(2)
+                        + ") supera el saldo pendiente ($" + saldoPendiente.setScale(2) + ")."
+                );
+            }
 
             String medio =
                     cmbMedio

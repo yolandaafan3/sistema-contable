@@ -386,7 +386,7 @@ public class DialogoFinanciamiento extends JDialog {
 
         spFecha =
                 new JSpinner(
-                        new SpinnerDateModel()
+                        DialogoUIUtils.crearModeloFechaPeriodoActivo()
                 );
 
 

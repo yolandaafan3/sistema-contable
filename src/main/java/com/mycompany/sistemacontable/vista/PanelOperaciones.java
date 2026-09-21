@@ -13,6 +13,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
@@ -38,525 +39,185 @@ public class PanelOperaciones extends JPanel {
     private final Color COLOR_BORDE =
             new Color(226, 232, 240);
 
-
     public PanelOperaciones() {
-
         configurarPanel();
-
         construirInterfaz();
     }
 
-
-    // =========================================================
-    // CONFIGURACION
-    // =========================================================
-
     private void configurarPanel() {
 
-        setLayout(
-                new BorderLayout()
-        );
+        setLayout(new BorderLayout());
 
-        setBackground(
-                COLOR_FONDO
-        );
+        setBackground(COLOR_FONDO);
 
         setBorder(
                 BorderFactory.createEmptyBorder(
-                        28,
+                        24,
                         30,
                         30,
                         30
                 )
         );
     }
-
-
-    // =========================================================
-    // INTERFAZ
-    // =========================================================
 
     private void construirInterfaz() {
 
-        JPanel contenido =
-                new JPanel();
-
-        contenido.setOpaque(
-                false
-        );
-
-        contenido.setLayout(
-                new BoxLayout(
-                        contenido,
-                        BoxLayout.Y_AXIS
-                )
-        );
-
-
-        JLabel titulo =
-                new JLabel(
-                        "Operaciones"
-                );
-
-        titulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        28
-                )
-        );
+    JPanel contenido = new JPanel();
+    contenido.setOpaque(false);
+
+    contenido.setLayout(
+            new BoxLayout(
+                    contenido,
+                    BoxLayout.Y_AXIS
+            )
+    );
+
+    JLabel titulo = new JLabel(
+            "Operaciones Contables"
+    );
+
+    titulo.setFont(
+            new Font(
+                    "Segoe UI",
+                    Font.BOLD,
+                    28
+            )
+    );
+
+    titulo.setForeground(
+            COLOR_TEXTO
+    );
 
-        titulo.setForeground(
-                COLOR_TEXTO
-        );
-
-        titulo.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
-
-
-        JLabel subtitulo =
-                new JLabel(
-                        "Registra las operaciones contables y comerciales de la empresa."
-                );
-
-        subtitulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        14
-                )
-        );
-
-        subtitulo.setForeground(
-                COLOR_SECUNDARIO
-        );
-
-        subtitulo.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
-
+    titulo.setAlignmentX(
+            LEFT_ALIGNMENT
+    );
 
-        contenido.add(
-                titulo
-        );
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        5
-                )
-        );
+    JLabel subtitulo = new JLabel(
+            "Registra los hechos económicos de la empresa mediante asientos contables."
+    );
 
-        contenido.add(
-                subtitulo
-        );
+    subtitulo.setFont(
+            new Font(
+                    "Segoe UI",
+                    Font.PLAIN,
+                    14
+            )
+    );
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        28
-                )
-        );
+    subtitulo.setForeground(
+            COLOR_SECUNDARIO
+    );
 
+    subtitulo.setAlignmentX(
+            LEFT_ALIGNMENT
+    );
 
-        // =====================================================
-        // INICIO DEL PERIODO
-        // =====================================================
 
-        contenido.add(
-                crearTituloSeccion(
-                        "Inicio del Período"
-                )
-        );
+    contenido.add(titulo);
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
+    contenido.add(
+            Box.createVerticalStrut(5)
+    );
 
+    contenido.add(subtitulo);
 
-        JPanel apertura =
-                crearGrid();
+    contenido.add(
+            Box.createVerticalStrut(28)
+    );
 
 
-        apertura.add(
-                crearTarjeta(
-                        "Apertura del Período",
-                        "Registra Caja, Inventario Inicial y Capital Social al comenzar el período contable.",
-                        "Registrar apertura",
-                        "APERTURA"
-                )
-        );
+    // =====================================================
+    // NUEVO ASIENTO CONTABLE
+    // =====================================================
 
+    contenido.add(
+            crearTituloSeccion(
+                    "Registro de operaciones"
+            )
+    );
 
-        contenido.add(
-                apertura
-        );
+    contenido.add(
+            Box.createVerticalStrut(5)
+    );
 
+    contenido.add(
+            crearDescripcionSeccion(
+                    "Registra una nueva operación antes de enviarla al Libro Diario."
+            )
+    );
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
+    contenido.add(
+            Box.createVerticalStrut(12)
+    );
 
 
-        // =====================================================
-        // MOVIMIENTOS DE EFECTIVO
-        // =====================================================
+    JPanel asientos = crearGrid();
 
-        contenido.add(
-                crearTituloSeccion(
-                        "Movimientos de Efectivo"
-                )
-        );
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
+    asientos.add(
+            crearTarjeta(
+                    "Nuevo Asiento Contable",
+                    "Describe la operación, obtén cuentas sugeridas "
+                    + "y revisa los valores en Debe y Haber antes "
+                    + "de registrarla.",
+                    "Registrar asiento",
+                    "ASIENTO_MANUAL"
+            )
+    );
 
+    asientos.add(
+            crearTarjeta(
+                    "Productos",
+                    "Administra el catálogo de productos, sus costos y precios "
+                    + "de referencia.",
+                    "Administrar productos",
+                    "PRODUCTOS"
+            )
+    );
 
-        JPanel efectivo =
-                crearGrid();
 
+    contenido.add(asientos);
 
-        efectivo.add(
-                crearTarjeta(
-                        "Transferencia Caja → Banco",
-                        "Traslada dinero disponible en Caja hacia Banco sin generar IVA ni afectar el inventario.",
-                        "Registrar transferencia",
-                        "TRANSFERENCIA_CAJA_BANCO"
-                )
-        );
 
+    contenido.add(
+            Box.createVerticalStrut(30)
+    );
 
-        contenido.add(
-                efectivo
-        );
 
+    // La apertura del período se administra únicamente desde "Períodos Contables".
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
+    JScrollPane scroll =
+            new JScrollPane(
+                    contenido
+            );
 
+    scroll.setBorder(null);
 
-        // =====================================================
-        // MERCADERIA
-        // =====================================================
+    scroll.setOpaque(false);
 
-        contenido.add(
-                crearTituloSeccion(
-                        "Mercadería e Inventario"
-                )
-        );
+    scroll.getViewport()
+            .setOpaque(false);
 
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
+    scroll.setHorizontalScrollBarPolicy(
+            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+    );
 
+    scroll.getVerticalScrollBar()
+            .setUnitIncrement(18);
 
-        JPanel mercaderia =
-                crearGrid();
 
+    SwingUtilities.invokeLater(
+            () -> scroll.getVerticalScrollBar()
+                    .setValue(0)
+    );
 
-        mercaderia.add(
-                crearTarjeta(
-                        "Nueva Compra",
-                        "Registra una compra de mercadería, calcula IVA y actualiza automáticamente Kardex y PEPS.",
-                        "Registrar compra",
-                        "COMPRA"
-                )
-        );
 
-
-        mercaderia.add(
-                crearTarjeta(
-                        "Nueva Venta",
-                        "Registra una venta, calcula IVA y realiza la salida automática mediante PEPS.",
-                        "Registrar venta",
-                        "VENTA"
-                )
-        );
-
-
-        mercaderia.add(
-                crearTarjeta(
-                        "Devolución de Compra",
-                        "Registra el valor monetario devuelto al proveedor y ajusta IVA e inventario.",
-                        "Registrar devolución",
-                        "DEVOLUCION_COMPRA"
-                )
-        );
-
-
-        mercaderia.add(
-                crearTarjeta(
-                        "Devolución de Venta",
-                        "Registra el valor monetario devuelto por un cliente y reincorpora unidades al Kardex.",
-                        "Registrar devolución",
-                        "DEVOLUCION_VENTA"
-                )
-        );
-
-
-        contenido.add(
-                mercaderia
-        );
-
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
-
-
-        // =====================================================
-        // CLIENTES / PROVEEDORES
-        // =====================================================
-
-        contenido.add(
-                crearTituloSeccion(
-                        "Clientes y Proveedores"
-                )
-        );
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
-
-
-        JPanel clientes =
-                crearGrid();
-
-
-        clientes.add(
-                crearTarjeta(
-                        "Cobro a Cliente",
-                        "Registra el cobro de una cuenta pendiente en efectivo o banco.",
-                        "Registrar cobro",
-                        "COBRO_CLIENTE"
-                )
-        );
-
-
-        clientes.add(
-                crearTarjeta(
-                        "Pago a Proveedor",
-                        "Registra el pago de una obligación pendiente con un proveedor.",
-                        "Registrar pago",
-                        "PAGO_PROVEEDOR"
-                )
-        );
-
-
-        contenido.add(
-                clientes
-        );
-
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
-
-
-        // =====================================================
-        // GASTOS / ACTIVOS
-        // =====================================================
-
-        contenido.add(
-                crearTituloSeccion(
-                        "Gastos y Activos"
-                )
-        );
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
-
-
-        JPanel gastos =
-                crearGrid();
-
-
-        gastos.add(
-                crearTarjeta(
-                        "Registrar Gasto",
-                        "Gastos administrativos, de venta, financieros u otros, con manejo de IVA.",
-                        "Registrar gasto",
-                        "GASTO"
-                )
-        );
-
-
-        gastos.add(
-                crearTarjeta(
-                        "Compra de Activo",
-                        "Registra mobiliario, equipo de cómputo, transporte u otros activos.",
-                        "Registrar activo",
-                        "COMPRA_ACTIVO"
-                )
-        );
-
-
-        contenido.add(
-                gastos
-        );
-
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
-
-
-        // =====================================================
-        // FINANCIAMIENTO
-        // =====================================================
-
-        contenido.add(
-                crearTituloSeccion(
-                        "Financiamiento y Patrimonio"
-                )
-        );
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
-
-
-        JPanel financiamiento =
-                crearGrid();
-
-
-        financiamiento.add(
-                crearTarjeta(
-                        "Préstamo Bancario",
-                        "Registra préstamos, comisión bancaria, IVA y monto neto recibido.",
-                        "Registrar préstamo",
-                        "PRESTAMO"
-                )
-        );
-
-
-        financiamiento.add(
-                crearTarjeta(
-                        "Aporte de Capital",
-                        "Registra nuevos aportes realizados por los propietarios después de la apertura.",
-                        "Registrar aporte",
-                        "APORTE_CAPITAL"
-                )
-        );
-
-
-        contenido.add(
-                financiamiento
-        );
-
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        30
-                )
-        );
-
-
-        // =====================================================
-        // CONTABILIDAD GENERAL
-        // =====================================================
-
-        contenido.add(
-                crearTituloSeccion(
-                        "Contabilidad General"
-                )
-        );
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        12
-                )
-        );
-
-
-        JPanel contabilidad =
-                crearGrid();
-
-
-        contabilidad.add(
-                crearTarjeta(
-                        "Asiento Manual",
-                        "Registra ajustes contables seleccionando cuentas y valores en Debe y Haber.",
-                        "Nuevo asiento manual",
-                        "ASIENTO_MANUAL"
-                )
-        );
-
-
-        contenido.add(
-                contabilidad
-        );
-
-
-        contenido.add(
-                Box.createVerticalStrut(
-                        25
-                )
-        );
-
-
-        JScrollPane scroll =
-                new JScrollPane(
-                        contenido
-                );
-
-        scroll.setBorder(
-                null
-        );
-
-        scroll.setOpaque(
-                false
-        );
-
-        scroll.getViewport()
-                .setOpaque(
-                        false
-                );
-
-        scroll.setHorizontalScrollBarPolicy(
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
-        );
-
-        scroll.getVerticalScrollBar()
-                .setUnitIncrement(
-                        16
-                );
-
-
-        add(
-                scroll,
-                BorderLayout.CENTER
-        );
-    }
-
-
-    // =========================================================
-    // GRID
-    // =========================================================
+    add(
+            scroll,
+            BorderLayout.CENTER
+    );
+}
 
     private JPanel crearGrid() {
 
@@ -564,15 +225,13 @@ public class PanelOperaciones extends JPanel {
                 new JPanel(
                         new GridLayout(
                                 0,
-                                3,
+                                2,
                                 16,
                                 16
                         )
                 );
 
-        panel.setOpaque(
-                false
-        );
+        panel.setOpaque(false);
 
         panel.setAlignmentX(
                 LEFT_ALIGNMENT
@@ -581,32 +240,25 @@ public class PanelOperaciones extends JPanel {
         panel.setMaximumSize(
                 new Dimension(
                         Integer.MAX_VALUE,
-                        500
+                        1000
                 )
         );
 
         return panel;
     }
 
-
-    // =========================================================
-    // TITULO DE SECCION
-    // =========================================================
-
     private JLabel crearTituloSeccion(
             String texto
     ) {
 
         JLabel label =
-                new JLabel(
-                        texto
-                );
+                new JLabel(texto);
 
         label.setFont(
                 new Font(
                         "Segoe UI",
                         Font.BOLD,
-                        17
+                        18
                 )
         );
 
@@ -621,10 +273,31 @@ public class PanelOperaciones extends JPanel {
         return label;
     }
 
+    private JLabel crearDescripcionSeccion(
+            String texto
+    ) {
 
-    // =========================================================
-    // TARJETA
-    // =========================================================
+        JLabel label =
+                new JLabel(texto);
+
+        label.setFont(
+                new Font(
+                        "Segoe UI",
+                        Font.PLAIN,
+                        12
+                )
+        );
+
+        label.setForeground(
+                COLOR_SECUNDARIO
+        );
+
+        label.setAlignmentX(
+                LEFT_ALIGNMENT
+        );
+
+        return label;
+    }
 
     private JPanel crearTarjeta(
             String titulo,
@@ -653,10 +326,10 @@ public class PanelOperaciones extends JPanel {
                                 COLOR_BORDE
                         ),
                         BorderFactory.createEmptyBorder(
-                                20,
-                                20,
-                                20,
-                                20
+                                16,
+                                18,
+                                16,
+                                18
                         )
                 )
         );
@@ -664,21 +337,18 @@ public class PanelOperaciones extends JPanel {
         tarjeta.setPreferredSize(
                 new Dimension(
                         280,
-                        185
+                        145
                 )
         );
 
-
         JLabel lblTitulo =
-                new JLabel(
-                        titulo
-                );
+                new JLabel(titulo);
 
         lblTitulo.setFont(
                 new Font(
                         "Segoe UI",
                         Font.BOLD,
-                        17
+                        16
                 )
         );
 
@@ -689,7 +359,6 @@ public class PanelOperaciones extends JPanel {
         lblTitulo.setAlignmentX(
                 LEFT_ALIGNMENT
         );
-
 
         JLabel lblDescripcion =
                 new JLabel(
@@ -714,11 +383,47 @@ public class PanelOperaciones extends JPanel {
                 LEFT_ALIGNMENT
         );
 
-
         JButton boton =
                 new JButton(
                         textoBoton
                 );
+
+        configurarBoton(
+                boton
+        );
+
+        boton.addActionListener(
+                e -> abrirOperacion(
+                        operacion
+                )
+        );
+
+        tarjeta.add(
+                lblTitulo
+        );
+
+        tarjeta.add(
+                Box.createVerticalStrut(7)
+        );
+
+        tarjeta.add(
+                lblDescripcion
+        );
+
+        tarjeta.add(
+                Box.createVerticalGlue()
+        );
+
+        tarjeta.add(
+                boton
+        );
+
+        return tarjeta;
+    }
+
+    private void configurarBoton(
+            JButton boton
+    ) {
 
         boton.setUI(
                 new BasicButtonUI()
@@ -742,9 +447,9 @@ public class PanelOperaciones extends JPanel {
 
         boton.setBorder(
                 BorderFactory.createEmptyBorder(
-                        9,
+                        8,
                         14,
-                        9,
+                        8,
                         14
                 )
         );
@@ -774,10 +479,9 @@ public class PanelOperaciones extends JPanel {
         boton.setMaximumSize(
                 new Dimension(
                         Integer.MAX_VALUE,
-                        38
+                        36
                 )
         );
-
 
         boton.addMouseListener(
                 new java.awt.event.MouseAdapter() {
@@ -803,80 +507,58 @@ public class PanelOperaciones extends JPanel {
                     }
                 }
         );
-
-
-        boton.addActionListener(
-                e -> abrirOperacion(
-                        operacion
-                )
-        );
-
-
-        tarjeta.add(
-                lblTitulo
-        );
-
-        tarjeta.add(
-                Box.createVerticalStrut(
-                        10
-                )
-        );
-
-        tarjeta.add(
-                lblDescripcion
-        );
-
-        tarjeta.add(
-                Box.createVerticalGlue()
-        );
-
-        tarjeta.add(
-                boton
-        );
-
-
-        return tarjeta;
     }
 
+    private void seleccionarDevolucion() {
 
-    // =========================================================
-    // ABRIR OPERACION
-    // =========================================================
+        Object[] opciones = {
+                "Devolución de compra",
+                "Devolución de venta",
+                "Cancelar"
+        };
+
+        int seleccion =
+                JOptionPane.showOptionDialog(
+                        this,
+                        "Selecciona el tipo de devolución que deseas registrar.",
+                        "Registrar devolución",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        opciones,
+                        opciones[0]
+                );
+
+        if (seleccion == 0) {
+
+            abrirOperacion(
+                    "DEVOLUCION_COMPRA"
+            );
+
+        } else if (seleccion == 1) {
+
+            abrirOperacion(
+                    "DEVOLUCION_VENTA"
+            );
+        }
+    }
 
     private void abrirOperacion(
             String operacion
     ) {
 
+        if ("DEVOLUCION".equals(
+                operacion
+        )) {
+
+            seleccionarDevolucion();
+            return;
+        }
+
         Window ventana =
                 SwingUtilities.getWindowAncestor(
                         this
                 );
-
-
-        // =====================================================
-        // APERTURA
-        // =====================================================
-
-        if ("APERTURA".equals(
-                operacion
-        )) {
-
-            DialogoAperturaPeriodo dialogo =
-                    new DialogoAperturaPeriodo(
-                            ventana
-                    );
-
-            dialogo.setVisible(
-                    true
-            );
-
-            return;
-        }
-
-
-        // =====================================================
-        // TRANSFERENCIA CAJA -> BANCO
-        // =====================================================
 
         if ("TRANSFERENCIA_CAJA_BANCO".equals(
                 operacion
@@ -893,11 +575,6 @@ public class PanelOperaciones extends JPanel {
 
             return;
         }
-
-
-        // =====================================================
-        // COMPRA / VENTA
-        // =====================================================
 
         if ("COMPRA".equals(
                 operacion
@@ -920,11 +597,6 @@ public class PanelOperaciones extends JPanel {
             return;
         }
 
-
-        // =====================================================
-        // DEVOLUCIONES
-        // =====================================================
-
         if ("DEVOLUCION_COMPRA".equals(
                 operacion
         )
@@ -945,11 +617,6 @@ public class PanelOperaciones extends JPanel {
 
             return;
         }
-
-
-        // =====================================================
-        // COBROS / PAGOS
-        // =====================================================
 
         if ("COBRO_CLIENTE".equals(
                 operacion
@@ -972,11 +639,6 @@ public class PanelOperaciones extends JPanel {
             return;
         }
 
-
-        // =====================================================
-        // GASTOS / ACTIVOS
-        // =====================================================
-
         if ("GASTO".equals(
                 operacion
         )
@@ -997,11 +659,6 @@ public class PanelOperaciones extends JPanel {
 
             return;
         }
-
-
-        // =====================================================
-        // FINANCIAMIENTO
-        // =====================================================
 
         if ("PRESTAMO".equals(
                 operacion
@@ -1024,10 +681,21 @@ public class PanelOperaciones extends JPanel {
             return;
         }
 
+        if ("PRODUCTOS".equals(
+                operacion
+        )) {
 
-        // =====================================================
-        // ASIENTO MANUAL
-        // =====================================================
+            DialogoProducto dialogo =
+                    new DialogoProducto(
+                            ventana
+                    );
+
+            dialogo.setVisible(
+                    true
+            );
+
+            return;
+        }
 
         if ("ASIENTO_MANUAL".equals(
                 operacion

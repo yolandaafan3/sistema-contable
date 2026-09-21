@@ -11,6 +11,12 @@ import java.awt.Font;
 import java.awt.FlowLayout;
 
 import java.util.List;
+import java.io.File;
+import java.io.FileOutputStream;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import javax.swing.JFileChooser;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -187,15 +193,16 @@ public class PanelCatalogoCuentas extends JPanel {
                 e -> cargarCuentas()
         );
 
-        panel.add(
-                textos,
-                BorderLayout.WEST
-        );
+        JButton btnExportar = crearBotonAzul("Exportar a Excel");
+        btnExportar.addActionListener(e -> exportarCatalogoExcel());
 
-        panel.add(
-                btnActualizar,
-                BorderLayout.EAST
-        );
+        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        acciones.setOpaque(false);
+        acciones.add(btnActualizar);
+        acciones.add(btnExportar);
+
+        panel.add(textos, BorderLayout.WEST);
+        panel.add(acciones, BorderLayout.EAST);
 
         return panel;
     }
@@ -562,6 +569,34 @@ public class PanelCatalogoCuentas extends JPanel {
                     JOptionPane.ERROR_MESSAGE
             );
         }
+    }
+
+
+    private void exportarCatalogoExcel() {
+        try {
+            List<Cuenta> cuentas = cuentaDAO.listarTodas(true);
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Guardar catálogo de cuentas");
+            chooser.setFileFilter(new FileNameExtensionFilter("Archivo Excel (*.xlsx)", "xlsx"));
+            chooser.setSelectedFile(new File("catalogo_de_cuentas.xlsx"));
+            if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+            File archivo=chooser.getSelectedFile();
+            if(!archivo.getName().toLowerCase().endsWith(".xlsx"))archivo=new File(archivo.getAbsolutePath()+".xlsx");
+            if(archivo.exists()&&JOptionPane.showConfirmDialog(this,"El archivo ya existe. ¿Deseas reemplazarlo?","Confirmar",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
+            try(Workbook wb=new XSSFWorkbook()){
+                Sheet hoja=wb.createSheet("Catálogo de Cuentas"); hoja.setDisplayGridlines(false);
+                CellStyle titulo=wb.createCellStyle();titulo.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());titulo.setFillPattern(FillPatternType.SOLID_FOREGROUND);org.apache.poi.ss.usermodel.Font tf=wb.createFont();tf.setBold(true);tf.setFontHeightInPoints((short)16);tf.setColor(IndexedColors.WHITE.getIndex());titulo.setFont(tf);
+                Row tr=hoja.createRow(0);Cell tc=tr.createCell(0);tc.setCellValue("ContaProMax | Catálogo de Cuentas");tc.setCellStyle(titulo);hoja.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0,0,0,7));tr.setHeightInPoints(26);
+                Row info=hoja.createRow(1);info.createCell(0).setCellValue("Exportado: "+java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));hoja.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(1,1,0,7));
+                CellStyle encabezado=wb.createCellStyle();encabezado.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());encabezado.setFillPattern(FillPatternType.SOLID_FOREGROUND);encabezado.setBorderBottom(BorderStyle.THIN);org.apache.poi.ss.usermodel.Font fuente=wb.createFont();fuente.setBold(true);encabezado.setFont(fuente);
+                String[] columnas={"Código","Nombre","Tipo","Clasificación","Naturaleza","Rol Reporte","Movimiento","Estado"};Row h=hoja.createRow(3);for(int i=0;i<columnas.length;i++){Cell c=h.createCell(i);c.setCellValue(columnas[i]);c.setCellStyle(encabezado);}int fila=4;
+                CellStyle cuerpo=wb.createCellStyle();cuerpo.setBorderBottom(BorderStyle.HAIR);
+                for(Cuenta cuenta:cuentas){Row r=hoja.createRow(fila++);String[] vals={cuenta.getCodigo(),cuenta.getNombre(),formatearTexto(cuenta.getTipo()),formatearTexto(cuenta.getClasificacion()),formatearTexto(cuenta.getNaturaleza()),formatearRol(cuenta.getRolReporte()),cuenta.isPermiteMovimiento()?"Sí":"No",cuenta.isActivo()?"Activa":"Inactiva"};for(int i=0;i<vals.length;i++){Cell c=r.createCell(i);c.setCellValue(vals[i]);c.setCellStyle(cuerpo);}}
+                hoja.createFreezePane(0,4);hoja.setAutoFilter(new org.apache.poi.ss.util.CellRangeAddress(3,Math.max(3,fila-1),0,7));for(int i=0;i<columnas.length;i++){hoja.autoSizeColumn(i);hoja.setColumnWidth(i,Math.min(Math.max(hoja.getColumnWidth(i)+800,3000),15000));}
+                try(FileOutputStream out=new FileOutputStream(archivo)){wb.write(out);}
+            }
+            JOptionPane.showMessageDialog(this,"Catálogo exportado correctamente en:\n"+archivo.getAbsolutePath(),"Exportación completada",JOptionPane.INFORMATION_MESSAGE);
+        }catch(Exception e){JOptionPane.showMessageDialog(this,"No se pudo exportar el catálogo:\n"+e.getMessage(),"Error de exportación",JOptionPane.ERROR_MESSAGE);}
     }
 
     private void agregarFiltroBusqueda() {

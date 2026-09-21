@@ -4,6 +4,7 @@ import com.mycompany.sistemacontable.Conexion;
 import com.mycompany.sistemacontable.dao.KardexDAO;
 import com.mycompany.sistemacontable.dao.ProductoDAO;
 import com.mycompany.sistemacontable.modelo.MovimientoKardex;
+import com.mycompany.sistemacontable.modelo.CapaPeps;
 import com.mycompany.sistemacontable.modelo.Producto;
 
 import java.math.BigDecimal;
@@ -30,18 +31,16 @@ public class KardexService {
                 new RecalculoKardexService();
     }
 
-
     public Producto obtenerProductoActivo() {
 
         return productoDAO.obtenerProductoActivo();
     }
 
+    public List<Producto> listarProductosActivos() {
 
-    /**
-     * Reconstruye Kardex y capas PEPS con las reglas actuales del proyecto.
-     * Se usa al abrir/actualizar Kardex y antes de calcular estados financieros,
-     * para que los saldos reflejen el costo unitario redondeado a centavos.
-     */
+        return productoDAO.listarProductosActivos();
+    }
+
     public void recalcular() {
 
         Producto producto =
@@ -51,6 +50,14 @@ public class KardexService {
             return;
         }
 
+        recalcular(
+                producto.getIdProducto()
+        );
+    }
+
+    public void recalcular(
+            int idProducto
+    ) {
 
         Connection conexion =
                 null;
@@ -67,20 +74,16 @@ public class KardexService {
                 );
             }
 
-
             conexion.setAutoCommit(
                     false
             );
 
-
             recalculoKardexService.recalcularProducto(
-                    producto.getIdProducto(),
+                    idProducto,
                     conexion
             );
 
-
             conexion.commit();
-
 
         } catch (Exception e) {
 
@@ -99,13 +102,11 @@ public class KardexService {
                 }
             }
 
-
             throw new RuntimeException(
                     "No se pudo recalcular el Kardex: "
                     + e.getMessage(),
                     e
             );
-
 
         } finally {
 
@@ -130,7 +131,6 @@ public class KardexService {
         }
     }
 
-
     public List<MovimientoKardex> obtenerMovimientos() {
 
         Producto producto =
@@ -141,6 +141,14 @@ public class KardexService {
             return Collections.emptyList();
         }
 
+        return obtenerMovimientos(
+                producto.getIdProducto()
+        );
+    }
+
+    public List<MovimientoKardex> obtenerMovimientos(
+            int idProducto
+    ) {
 
         try (
                 Connection conexion =
@@ -154,12 +162,10 @@ public class KardexService {
                 );
             }
 
-
             return kardexDAO.listarMovimientos(
-                    producto.getIdProducto(),
+                    idProducto,
                     conexion
             );
-
 
         } catch (SQLException e) {
 
@@ -171,7 +177,6 @@ public class KardexService {
         }
     }
 
-
     public BigDecimal obtenerSaldoPeps() {
 
         Producto producto =
@@ -182,6 +187,14 @@ public class KardexService {
             return BigDecimal.ZERO;
         }
 
+        return obtenerSaldoPeps(
+                producto.getIdProducto()
+        );
+    }
+
+    public BigDecimal obtenerSaldoPeps(
+            int idProducto
+    ) {
 
         try (
                 Connection conexion =
@@ -195,12 +208,10 @@ public class KardexService {
                 );
             }
 
-
             return kardexDAO.obtenerSaldoPeps(
-                    producto.getIdProducto(),
+                    idProducto,
                     conexion
             );
-
 
         } catch (SQLException e) {
 
@@ -212,11 +223,34 @@ public class KardexService {
         }
     }
 
-
     public BigDecimal obtenerSaldoPepsActualizado() {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Producto producto : listarProductosActivos()) {
+            recalcular(producto.getIdProducto());
+            total = total.add(obtenerSaldoPeps(producto.getIdProducto()));
+        }
+        return total.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
 
-        recalcular();
+    public BigDecimal obtenerSaldoPepsActualizado(
+            int idProducto
+    ) {
 
-        return obtenerSaldoPeps();
+        recalcular(
+                idProducto
+        );
+
+        return obtenerSaldoPeps(
+                idProducto
+        );
+    }
+
+    public List<CapaPeps> obtenerCapas(int idProducto) {
+        try (Connection conexion = Conexion.conectar()) {
+            if (conexion == null) throw new SQLException("No se pudo conectar con MySQL.");
+            return kardexDAO.listarCapasTodas(idProducto, conexion);
+        } catch (SQLException e) {
+            throw new RuntimeException("No se pudieron consultar los lotes PEPS: " + e.getMessage(), e);
+        }
     }
 }

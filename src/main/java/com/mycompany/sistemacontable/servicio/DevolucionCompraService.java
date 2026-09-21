@@ -1,834 +1,117 @@
 package com.mycompany.sistemacontable.servicio;
 
 import com.mycompany.sistemacontable.Conexion;
-
-import com.mycompany.sistemacontable.dao.AsientoDAO;
-import com.mycompany.sistemacontable.dao.CuentaDAO;
-import com.mycompany.sistemacontable.dao.KardexDAO;
-import com.mycompany.sistemacontable.dao.OperacionDAO;
-import com.mycompany.sistemacontable.dao.ProductoDAO;
-
-import com.mycompany.sistemacontable.modelo.AsientoContable;
-import com.mycompany.sistemacontable.modelo.Cuenta;
-import com.mycompany.sistemacontable.modelo.DetalleAsiento;
-import com.mycompany.sistemacontable.modelo.MovimientoKardex;
-import com.mycompany.sistemacontable.modelo.Operacion;
-import com.mycompany.sistemacontable.modelo.PeriodoContable;
-import com.mycompany.sistemacontable.modelo.Producto;
-import com.mycompany.sistemacontable.modelo.ResultadoDevolucionCompra;
-import com.mycompany.sistemacontable.modelo.ResultadoIVA;
-
+import com.mycompany.sistemacontable.dao.*;
+import com.mycompany.sistemacontable.modelo.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-
+import java.sql.*;
 import java.time.LocalDate;
 
 public class DevolucionCompraService {
+    private final ProductoDAO productoDAO=new ProductoDAO();
+    private final CuentaDAO cuentaDAO=new CuentaDAO();
+    private final OperacionDAO operacionDAO=new OperacionDAO();
+    private final AsientoDAO asientoDAO=new AsientoDAO();
+    private final KardexDAO kardexDAO=new KardexDAO();
+    private final PeriodoService periodoService=new PeriodoService();
+    private final CalculoIVAService ivaService=new CalculoIVAService();
+    private final RecalculoKardexService recalculo=new RecalculoKardexService();
 
-    private final ProductoDAO productoDAO;
-    private final CuentaDAO cuentaDAO;
-    private final OperacionDAO operacionDAO;
-    private final AsientoDAO asientoDAO;
-    private final KardexDAO kardexDAO;
+    public ResultadoDevolucionCompra registrar(LocalDate fecha,int idProducto,int idOperacionOrigen,
+            BigDecimal montoDevolucion,String formaReintegro,String concepto){
+        validar(fecha,idProducto,idOperacionOrigen,montoDevolucion,formaReintegro);
+        periodoService.validarFecha(fecha);
+        PeriodoContable periodo=periodoService.obtenerPeriodoActivo();
+        Connection c=null;
+        try{
+            c=Conexion.conectar(); c.setAutoCommit(false);
+            Origen o=cargarOrigen(c,idOperacionOrigen,"COMPRA",idProducto);
+            validarOrigenMismoPeriodo(c,idOperacionOrigen,periodo.getIdPeriodo());
+            String formaAplicada = o.formaPago;
+            if(fecha.isBefore(o.fecha)) throw new IllegalArgumentException("La devolución no puede ser anterior a la compra de origen.");
+            BigDecimal monto=montoDevolucion.setScale(2,RoundingMode.HALF_UP);
+            BigDecimal cantidad=monto.divide(o.precioUnitario,6,RoundingMode.HALF_UP);
+            Producto productoActual=productoDAO.buscarPorIdParaActualizar(idProducto,c);
+            BigDecimal existenciaDisponible=(productoActual==null||productoActual.getExistenciaActual()==null)
+                    ? BigDecimal.ZERO : productoActual.getExistenciaActual();
+            if(cantidad.compareTo(existenciaDisponible)>0)
+                throw new IllegalArgumentException("No se puede devolver "
+                        +cantidad.stripTrailingZeros().toPlainString()+" unidades al proveedor porque solo hay "
+                        +existenciaDisponible.stripTrailingZeros().toPlainString()+" unidades en existencia.");
+            ResultadoIVA riva=ivaService.calcular(monto);
+            BigDecimal subtotal=riva.getSubtotal().setScale(2,RoundingMode.HALF_UP);
+            BigDecimal iva=riva.getIva().setScale(2,RoundingMode.HALF_UP);
+            BigDecimal total=riva.getTotal().setScale(2,RoundingMode.HALF_UP);
 
-    private final PeriodoService periodoService;
-    private final CalculoIVAService ivaService;
-    private final RecalculoKardexService recalculoKardexService;
+            Cuenta dev=cuentaDAO.buscarPorRol("DEVOLUCION_COMPRAS");
+            Cuenta ivaCred=cuentaDAO.buscarPorRol("IVA_CREDITO");
+            Cuenta contra=cuentaDAO.buscarPorCodigo(o.codigoContrapartida);
+            validarCuenta(dev,"Devolución sobre Compras"); validarCuenta(contra,"contrapartida");
+            if(iva.signum()>0) validarCuenta(ivaCred,"IVA Crédito Fiscal");
 
+            Operacion op=new Operacion(); op.setIdPeriodo(periodo.getIdPeriodo()); op.setFecha(fecha);
+            op.setTipoOperacion("DEVOLUCION_COMPRA"); op.setConcepto(concepto(concepto,"Devolución sobre compra"));
+            op.setIdProducto(idProducto); op.setIdOperacionOrigen(idOperacionOrigen); op.setCantidad(cantidad);
+            op.setPrecioUnitario(o.precioUnitario); op.setSubtotal(subtotal); op.setIva(iva); op.setTotal(total); op.setFormaPago(formaAplicada);
+            int idOp=operacionDAO.insertar(op,c);
 
-    public DevolucionCompraService() {
+            int n=asientoDAO.obtenerSiguienteNumero(periodo.getIdPeriodo(),c);
+            AsientoContable a=new AsientoContable(); a.setIdPeriodo(periodo.getIdPeriodo()); a.setIdOperacion(idOp); a.setNumeroAsiento(n);
+            a.setFecha(fecha); a.setConcepto(op.getConcepto()); a.setTipoAsiento("AUTOMATICO"); a.setEstado("CONTABILIZADO");
+            int idA=asientoDAO.insertarAsiento(a,c);
+            detalle(idA,contra,descripcionContra(formaAplicada),total,BigDecimal.ZERO,c);
+            detalle(idA,dev,"Devolución sobre compras",BigDecimal.ZERO,subtotal,c);
+            if(iva.signum()>0) detalle(idA,ivaCred,"Disminución IVA Crédito Fiscal",BigDecimal.ZERO,iva,c);
 
-        productoDAO =
-                new ProductoDAO();
-
-        cuentaDAO =
-                new CuentaDAO();
-
-        operacionDAO =
-                new OperacionDAO();
-
-        asientoDAO =
-                new AsientoDAO();
-
-        kardexDAO =
-                new KardexDAO();
-
-        periodoService =
-                new PeriodoService();
-
-        ivaService =
-                new CalculoIVAService();
-
-        recalculoKardexService =
-                new RecalculoKardexService();
+            recalculo.recalcularProducto(idProducto,c);
+            MovimientoKardex mov=kardexDAO.buscarMovimientoPorAsiento(idA,c);
+            Producto pa=productoDAO.buscarPorId(idProducto,c);
+            c.commit();
+            return new ResultadoDevolucionCompra(idOp,idA,n,subtotal,iva,total,
+                    mov.getSaldoAcreedor().setScale(2,RoundingMode.HALF_UP),
+                    pa.getExistenciaActual().setScale(2,RoundingMode.HALF_UP),mov.getSaldo().setScale(2,RoundingMode.HALF_UP));
+        }catch(Exception e){ if(c!=null)try{c.rollback();}catch(Exception ignored){} throw new RuntimeException("No se pudo registrar la devolución sobre compra: "+mensaje(e),e); }
+        finally{ if(c!=null)try{c.setAutoCommit(true);c.close();}catch(Exception ignored){} }
     }
 
-
-    public ResultadoDevolucionCompra registrar(
-            LocalDate fecha,
-            BigDecimal montoDevolucion,
-            String formaReintegro,
-            String concepto
-    ) {
-
-        // =====================================================
-        // VALIDACIONES
-        // =====================================================
-
-        validarDatos(
-                fecha,
-                montoDevolucion,
-                formaReintegro
-        );
-
-
-        periodoService.validarFecha(
-                fecha
-        );
-
-
-        PeriodoContable periodo =
-                periodoService.obtenerPeriodoActivo();
-
-
-        Producto producto =
-                productoDAO.obtenerProductoActivo();
-
-
-        if (producto == null) {
-
-            throw new IllegalStateException(
-                    "No existe un producto activo."
-            );
-        }
-
-
-        if (producto.getCostoCompra() == null
-                ||
-            producto.getCostoCompra().compareTo(
-                    BigDecimal.ZERO
-            ) <= 0) {
-
-            throw new IllegalStateException(
-                    "El producto no tiene un precio de compra válido."
-            );
-        }
-
-
-        // =====================================================
-        // MONTO INTRODUCIDO POR EL USUARIO
-        // =====================================================
-
-        BigDecimal monto =
-                montoDevolucion.setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                );
-
-
-        // =====================================================
-        // IVA
-        // =====================================================
-
-        ResultadoIVA resultadoIVA =
-                ivaService.calcular(
-                        monto
-                );
-
-
-        BigDecimal subtotal =
-                resultadoIVA
-                        .getSubtotal()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        BigDecimal iva =
-                resultadoIVA
-                        .getIva()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        BigDecimal total =
-                resultadoIVA
-                        .getTotal()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        // =====================================================
-        // UNIDADES AUTOMATICAS PARA KARDEX
-        // =====================================================
-        //
-        // Ejemplo de la guía:
-        //
-        // Devolución: $1,000
-        // Precio de compra: $10
-        //
-        // 1,000 / 10 = 100 unidades
-        //
-        // =====================================================
-
-        BigDecimal cantidad =
-                monto.divide(
-                        producto.getCostoCompra(),
-                        6,
-                        RoundingMode.HALF_UP
-                );
-
-
-        if (cantidad.compareTo(
-                BigDecimal.ZERO
-        ) <= 0) {
-
-            throw new IllegalStateException(
-                    "No fue posible calcular las unidades "
-                    + "de la devolución."
-            );
-        }
-
-
-        // =====================================================
-        // CUENTAS CONTABLES
-        // =====================================================
-
-        Cuenta devolucionCompras =
-                cuentaDAO.buscarPorRol(
-                        "DEVOLUCION_COMPRAS"
-                );
-
-
-        Cuenta ivaCredito =
-                cuentaDAO.buscarPorRol(
-                        "IVA_CREDITO"
-                );
-
-
-        Cuenta contrapartida =
-                obtenerContrapartida(
-                        formaReintegro
-                );
-
-
-        validarCuenta(
-                devolucionCompras,
-                "Devolución sobre Compras"
-        );
-
-
-        if (iva.compareTo(
-                BigDecimal.ZERO
-        ) > 0) {
-
-            validarCuenta(
-                    ivaCredito,
-                    "IVA Crédito Fiscal"
-            );
-        }
-
-
-        validarCuenta(
-                contrapartida,
-                "contrapartida de la devolución"
-        );
-
-
-        Connection conexion =
-                null;
-
-
-        try {
-
-            conexion =
-                    Conexion.conectar();
-
-
-            if (conexion == null) {
-
-                throw new SQLException(
-                        "No se pudo conectar con MySQL."
-                );
-            }
-
-
-            conexion.setAutoCommit(
-                    false
-            );
-
-
-            // =================================================
-            // 1. OPERACION
-            // =================================================
-
-            Operacion operacion =
-                    new Operacion();
-
-
-            operacion.setIdPeriodo(
-                    periodo.getIdPeriodo()
-            );
-
-
-            operacion.setFecha(
-                    fecha
-            );
-
-
-            operacion.setTipoOperacion(
-                    "DEVOLUCION_COMPRA"
-            );
-
-
-            operacion.setConcepto(
-                    prepararConcepto(
-                            concepto
-                    )
-            );
-
-
-            operacion.setIdProducto(
-                    producto.getIdProducto()
-            );
-
-
-            // Las unidades son calculadas automáticamente.
-
-            operacion.setCantidad(
-                    cantidad
-            );
-
-
-            operacion.setPrecioUnitario(
-                    producto.getCostoCompra()
-            );
-
-
-            operacion.setSubtotal(
-                    subtotal
-            );
-
-
-            operacion.setIva(
-                    iva
-            );
-
-
-            operacion.setTotal(
-                    total
-            );
-
-
-            operacion.setFormaPago(
-                    formaReintegro
-            );
-
-
-            int idOperacion =
-                    operacionDAO.insertar(
-                            operacion,
-                            conexion
-                    );
-
-
-            // =================================================
-            // 2. NUMERO DE ASIENTO
-            // =================================================
-
-            int numeroAsiento =
-                    asientoDAO.obtenerSiguienteNumero(
-                            periodo.getIdPeriodo(),
-                            conexion
-                    );
-
-
-            // =================================================
-            // 3. ASIENTO CONTABLE
-            // =================================================
-
-            AsientoContable asiento =
-                    new AsientoContable();
-
-
-            asiento.setIdPeriodo(
-                    periodo.getIdPeriodo()
-            );
-
-
-            asiento.setIdOperacion(
-                    idOperacion
-            );
-
-
-            asiento.setNumeroAsiento(
-                    numeroAsiento
-            );
-
-
-            asiento.setFecha(
-                    fecha
-            );
-
-
-            asiento.setConcepto(
-                    prepararConcepto(
-                            concepto
-                    )
-            );
-
-
-            asiento.setTipoAsiento(
-                    "AUTOMATICO"
-            );
-
-
-            asiento.setEstado(
-                    "CONTABILIZADO"
-            );
-
-
-            int idAsiento =
-                    asientoDAO.insertarAsiento(
-                            asiento,
-                            conexion
-                    );
-
-
-            // =================================================
-            // 4. PROVEEDORES / CAJA / BANCO - DEBE
-            // =================================================
-            //
-            // Si la compra fue al crédito:
-            //
-            // Proveedores                 DEBE $1,000
-            //
-            // Si el proveedor reintegra dinero:
-            //
-            // Caja/Banco                  DEBE $1,000
-            //
-            // =================================================
-
-            insertarDetalle(
-                    idAsiento,
-                    contrapartida,
-                    descripcionContrapartida(
-                            formaReintegro
-                    ),
-                    total,
-                    BigDecimal.ZERO,
-                    conexion
-            );
-
-
-            // =================================================
-            // 5. DEVOLUCION SOBRE COMPRAS - HABER
-            // =================================================
-
-            insertarDetalle(
-                    idAsiento,
-                    devolucionCompras,
-                    "Devolución sobre compras",
-                    BigDecimal.ZERO,
-                    subtotal,
-                    conexion
-            );
-
-
-            // =================================================
-            // 6. IVA CREDITO FISCAL - HABER
-            // =================================================
-
-            if (iva.compareTo(
-                    BigDecimal.ZERO
-            ) > 0) {
-
-                insertarDetalle(
-                        idAsiento,
-                        ivaCredito,
-                        "Disminución IVA Crédito Fiscal",
-                        BigDecimal.ZERO,
-                        iva,
-                        conexion
-                );
-            }
-
-
-            // =================================================
-            // 7. RECALCULAR KARDEX PEPS
-            // =================================================
-            //
-            // El recalculador también comprueba que no se
-            // devuelvan más unidades de las que realmente
-            // fueron compradas hasta esa fecha.
-            //
-            // =================================================
-
-            recalculoKardexService.recalcularProducto(
-                    producto.getIdProducto(),
-                    conexion
-            );
-
-
-            // =================================================
-            // 8. MOVIMIENTO KARDEX
-            // =================================================
-
-            MovimientoKardex movimiento =
-                    kardexDAO.buscarMovimientoPorAsiento(
-                            idAsiento,
-                            conexion
-                    );
-
-
-            if (movimiento == null) {
-
-                throw new SQLException(
-                        "No se encontró el movimiento Kardex "
-                        + "de la devolución sobre compra."
-                );
-            }
-
-
-            // =================================================
-            // 9. PRODUCTO ACTUALIZADO
-            // =================================================
-
-            Producto productoActualizado =
-                    productoDAO.buscarPorId(
-                            producto.getIdProducto(),
-                            conexion
-                    );
-
-
-            if (productoActualizado == null) {
-
-                throw new SQLException(
-                        "No se pudo obtener el producto "
-                        + "después del recálculo."
-                );
-            }
-
-
-            BigDecimal costoPeps =
-                    movimiento
-                            .getSaldoAcreedor()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            BigDecimal saldoKardex =
-                    movimiento
-                            .getSaldo()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            BigDecimal nuevaExistencia =
-                    productoActualizado
-                            .getExistenciaActual()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            // =================================================
-            // 10. COMMIT
-            // =================================================
-
-            conexion.commit();
-
-
-            return new ResultadoDevolucionCompra(
-                    idOperacion,
-                    idAsiento,
-                    numeroAsiento,
-                    subtotal,
-                    iva,
-                    total,
-                    costoPeps,
-                    nuevaExistencia,
-                    saldoKardex
-            );
-
-
-        } catch (Exception e) {
-
-            if (conexion != null) {
-
-                try {
-
-                    conexion.rollback();
-
-                } catch (SQLException ex) {
-
-                    System.out.println(
-                            "Error al hacer rollback: "
-                            + ex.getMessage()
-                    );
-                }
-            }
-
-
-            throw new RuntimeException(
-                    "No se pudo registrar la devolución sobre compra: "
-                    + e.getMessage(),
-                    e
-            );
-
-
-        } finally {
-
-            if (conexion != null) {
-
-                try {
-
-                    conexion.setAutoCommit(
-                            true
-                    );
-
-                    conexion.close();
-
-                } catch (SQLException e) {
-
-                    System.out.println(
-                            "Error al cerrar conexión: "
-                            + e.getMessage()
-                    );
-                }
+    private void validarOrigenMismoPeriodo(Connection c,int idOperacion,int idPeriodo)throws SQLException{
+        try(PreparedStatement ps=c.prepareStatement("SELECT id_periodo FROM operaciones WHERE id_operacion=?")){
+            ps.setInt(1,idOperacion);try(ResultSet rs=ps.executeQuery()){
+                if(!rs.next())throw new IllegalArgumentException("No existe la operación de origen seleccionada.");
+                if(rs.getInt(1)!=idPeriodo)throw new IllegalArgumentException("La devolución debe corresponder a una operación del mismo período contable. Los períodos cerrados son históricos y no pueden modificarse desde el período actual.");
             }
         }
     }
-
-
-    // =========================================================
-    // INSERTAR DETALLE
-    // =========================================================
-
-    private void insertarDetalle(
-            int idAsiento,
-            Cuenta cuenta,
-            String descripcion,
-            BigDecimal debe,
-            BigDecimal haber,
-            Connection conexion
-    ) throws SQLException {
-
-        DetalleAsiento detalle =
-                new DetalleAsiento();
-
-
-        detalle.setIdAsiento(
-                idAsiento
-        );
-
-
-        detalle.setIdCuenta(
-                cuenta.getIdCuenta()
-        );
-
-
-        detalle.setDescripcion(
-                descripcion
-        );
-
-
-        detalle.setDebe(
-                debe.setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                )
-        );
-
-
-        detalle.setHaber(
-                haber.setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                )
-        );
-
-
-        asientoDAO.insertarDetalle(
-                detalle,
-                conexion
-        );
+    private Origen cargarOrigen(Connection c,int id,String tipo,int producto)throws SQLException{
+        LocalDate fecha; BigDecimal precio; String formaGuardada;
+        try(PreparedStatement ps=c.prepareStatement("SELECT fecha,tipo_operacion,id_producto,precio_unitario,forma_pago FROM operaciones WHERE id_operacion=?")){
+            ps.setInt(1,id); try(ResultSet rs=ps.executeQuery()){
+                if(!rs.next()) throw new IllegalArgumentException("No existe la operación de origen seleccionada.");
+                if(!tipo.equals(rs.getString("tipo_operacion")) || rs.getInt("id_producto")!=producto) throw new IllegalArgumentException("La operación de origen no corresponde al producto y tipo de devolución.");
+                precio=rs.getBigDecimal("precio_unitario"); if(precio==null||precio.signum()<=0) throw new IllegalStateException("La operación de origen no tiene costo unitario válido.");
+                fecha=rs.getDate("fecha").toLocalDate(); formaGuardada=rs.getString("forma_pago");
+            }
+        }
+        String codigoContra=null;
+        String sql="SELECT cc.codigo FROM asientos_contables a JOIN detalle_asientos d ON d.id_asiento=a.id_asiento JOIN catalogo_cuentas cc ON cc.id_cuenta=d.id_cuenta WHERE a.id_operacion=? AND d.haber>0 AND cc.codigo IN ('1.1.01.01','1.1.01.02','2.1.01.01') ORDER BY d.id_detalle LIMIT 1";
+        try(PreparedStatement ps=c.prepareStatement(sql)){ ps.setInt(1,id); try(ResultSet rs=ps.executeQuery()){if(rs.next())codigoContra=rs.getString(1);} }
+        String forma=formaDesdeCodigo(codigoContra);
+        if(forma==null){ validarFormaOrigen(formaGuardada); forma=formaGuardada; codigoContra=codigoDesdeForma(forma); }
+        return new Origen(fecha,precio.setScale(2,RoundingMode.HALF_UP),forma,codigoContra);
     }
-
-
-    // =========================================================
-    // CONTRAPARTIDA
-    // =========================================================
-
-    private Cuenta obtenerContrapartida(
-            String formaReintegro
-    ) {
-
-        return switch (
-                formaReintegro
-        ) {
-
-            case "CREDITO" ->
-                cuentaDAO.buscarPorCodigo(
-                        "2.1.01.01"
-                );
-
-
-            case "EFECTIVO" ->
-                cuentaDAO.buscarPorCodigo(
-                        "1.1.01.01"
-                );
-
-
-            case "BANCO" ->
-                cuentaDAO.buscarPorCodigo(
-                        "1.1.01.02"
-                );
-
-
-            default ->
-                null;
-        };
+    private record Origen(LocalDate fecha,BigDecimal precioUnitario,String formaPago,String codigoContrapartida){}
+    private String formaDesdeCodigo(String codigo){ if("1.1.01.01".equals(codigo))return "EFECTIVO"; if("1.1.01.02".equals(codigo))return "BANCO"; if("2.1.01.01".equals(codigo))return "CREDITO"; return null; }
+    private String codigoDesdeForma(String forma){ return switch(forma){case "EFECTIVO"->"1.1.01.01";case "BANCO"->"1.1.01.02";case "CREDITO"->"2.1.01.01";default->null;}; }
+    private void validarFormaOrigen(String forma){
+        if(!"CREDITO".equals(forma) && !"EFECTIVO".equals(forma) && !"BANCO".equals(forma))
+            throw new IllegalStateException("La compra original usa una forma de pago no compatible con devolución automática: "+forma+".");
     }
-
-
-    private String descripcionContrapartida(
-            String formaReintegro
-    ) {
-
-        return switch (
-                formaReintegro
-        ) {
-
-            case "CREDITO" ->
-                "Disminución de cuenta con proveedor";
-
-
-            case "EFECTIVO" ->
-                "Reintegro recibido en efectivo";
-
-
-            case "BANCO" ->
-                "Reintegro recibido en banco";
-
-
-            default ->
-                "Devolución sobre compra";
-        };
-    }
-
-
-    // =========================================================
-    // VALIDACIONES
-    // =========================================================
-
-    private void validarDatos(
-            LocalDate fecha,
-            BigDecimal montoDevolucion,
-            String formaReintegro
-    ) {
-
-        if (fecha == null) {
-
-            throw new IllegalArgumentException(
-                    "Debe seleccionar una fecha."
-            );
-        }
-
-
-        if (montoDevolucion == null
-                ||
-            montoDevolucion.compareTo(
-                    BigDecimal.ZERO
-            ) <= 0) {
-
-            throw new IllegalArgumentException(
-                    "El monto de la devolución "
-                    + "debe ser mayor que cero."
-            );
-        }
-
-
-        if (!"CREDITO".equals(
-                formaReintegro
-        )
-                &&
-            !"EFECTIVO".equals(
-                    formaReintegro
-            )
-                &&
-            !"BANCO".equals(
-                    formaReintegro
-            )) {
-
-            throw new IllegalArgumentException(
-                    "Forma de reintegro no válida."
-            );
-        }
-    }
-
-
-    private void validarCuenta(
-            Cuenta cuenta,
-            String nombre
-    ) {
-
-        if (cuenta == null) {
-
-            throw new IllegalStateException(
-                    "No se encontró la cuenta "
-                    + nombre
-                    + "."
-            );
-        }
-
-
-        if (!cuenta.isActivo()) {
-
-            throw new IllegalStateException(
-                    "La cuenta "
-                    + cuenta.getNombre()
-                    + " está desactivada."
-            );
-        }
-
-
-        if (!cuenta.isPermiteMovimiento()) {
-
-            throw new IllegalStateException(
-                    "La cuenta "
-                    + cuenta.getNombre()
-                    + " no permite movimientos."
-            );
-        }
-    }
-
-
-    private String prepararConcepto(
-            String concepto
-    ) {
-
-        if (concepto == null
-                ||
-            concepto.isBlank()) {
-
-            return "Devolución sobre compra";
-        }
-
-
-        return concepto.trim();
-    }
+    private void validar(LocalDate f,int p,int o,BigDecimal m,String forma){ if(f==null||p<=0||o<=0||m==null||m.signum()<=0)throw new IllegalArgumentException("Completa producto, compra de origen, fecha y monto de devolución."); if(!forma.equals("CREDITO")&&!forma.equals("EFECTIVO")&&!forma.equals("BANCO"))throw new IllegalArgumentException("Forma de reintegro no válida."); }
+    private Cuenta contrapartida(String f){ return switch(f){case "CREDITO"->cuentaDAO.buscarPorCodigo("2.1.01.01");case "EFECTIVO"->cuentaDAO.buscarPorCodigo("1.1.01.01");case "BANCO"->cuentaDAO.buscarPorCodigo("1.1.01.02");default->null;}; }
+    private String descripcionContra(String f){ return switch(f){case "CREDITO"->"Disminución de cuenta con proveedor";case "EFECTIVO"->"Reintegro recibido en efectivo";case "BANCO"->"Reintegro recibido en banco";default->"Devolución sobre compra";}; }
+    private void validarCuenta(Cuenta c,String n){ if(c==null||!c.isActivo()||!c.isPermiteMovimiento())throw new IllegalStateException("La cuenta "+n+" no está disponible para movimientos."); }
+    private void detalle(int a,Cuenta cuenta,String desc,BigDecimal debe,BigDecimal haber,Connection c)throws SQLException{ DetalleAsiento d=new DetalleAsiento();d.setIdAsiento(a);d.setIdCuenta(cuenta.getIdCuenta());d.setDescripcion(desc);d.setDebe(debe.setScale(2,RoundingMode.HALF_UP));d.setHaber(haber.setScale(2,RoundingMode.HALF_UP));asientoDAO.insertarDetalle(d,c); }
+    private String concepto(String s,String def){return s==null||s.isBlank()?def:s.trim();}
+    private String mensaje(Throwable e){String m="Error";for(Throwable x=e;x!=null;x=x.getCause())if(x.getMessage()!=null&&!x.getMessage().isBlank())m=x.getMessage();return m;}
 }

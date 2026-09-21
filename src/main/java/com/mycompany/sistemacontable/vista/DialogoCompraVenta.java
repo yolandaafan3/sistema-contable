@@ -1,8 +1,15 @@
 package com.mycompany.sistemacontable.vista;
 
+import com.mycompany.sistemacontable.dao.ProductoDAO;
+
+import com.mycompany.sistemacontable.modelo.Producto;
+import com.mycompany.sistemacontable.modelo.DistribucionPago;
+import com.mycompany.sistemacontable.modelo.ResultadoIVA;
 import com.mycompany.sistemacontable.modelo.ResultadoCompra;
 import com.mycompany.sistemacontable.modelo.ResultadoVenta;
+
 import com.mycompany.sistemacontable.servicio.CompraService;
+import com.mycompany.sistemacontable.servicio.CalculoIVAService;
 import com.mycompany.sistemacontable.servicio.VentaService;
 
 import java.awt.BorderLayout;
@@ -17,12 +24,14 @@ import java.awt.Insets;
 import java.awt.Window;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
 import java.util.Date;
+import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -35,6 +44,8 @@ import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SpinnerDateModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.plaf.basic.BasicButtonUI;
 
 public class DialogoCompraVenta extends JDialog {
@@ -43,10 +54,20 @@ public class DialogoCompraVenta extends JDialog {
 
     private final CompraService compraService;
     private final VentaService ventaService;
+    private final CalculoIVAService calculoIVAService;
+    private final ProductoDAO productoDAO;
 
     private JSpinner spFecha;
-    private JTextField txtMonto;
+
+    private JComboBox<Producto> cmbProducto;
+
+    private JTextField txtCantidad;
+    private JTextField txtPrecioUnitario;
+
+    private JLabel lblTotalCalculado;
+
     private JComboBox<String> cmbFormaPago;
+
     private JTextArea txtConcepto;
 
     private JButton btnGuardar;
@@ -92,9 +113,15 @@ public class DialogoCompraVenta extends JDialog {
         ventaService =
                 new VentaService();
 
-        configurarVentana();
+        calculoIVAService =
+                new CalculoIVAService();
 
+        productoDAO =
+                new ProductoDAO();
+
+        configurarVentana();
         construirInterfaz();
+        cargarProductos();
     }
 
     private void configurarVentana() {
@@ -104,14 +131,14 @@ public class DialogoCompraVenta extends JDialog {
         );
 
         setSize(
-                600,
-                620
+                650,
+                760
         );
 
         setMinimumSize(
                 new Dimension(
-                        560,
-                        580
+                        600,
+                        680
                 )
         );
 
@@ -192,8 +219,8 @@ public class DialogoCompraVenta extends JDialog {
 
         String descripcion =
                 esCompra
-                        ? "Ingresa el valor monetario total de la compra."
-                        : "Ingresa el valor monetario total de la venta.";
+                        ? "Registra cantidad y costo unitario neto; ContaProMax calcula subtotal, IVA, total y Kardex."
+                        : "Registra el monto total y el precio unitario; las unidades se calculan automáticamente.";
 
         JLabel lblTitulo =
                 new JLabel(
@@ -212,7 +239,7 @@ public class DialogoCompraVenta extends JDialog {
                 new Font(
                         "Segoe UI",
                         Font.BOLD,
-                        18
+                        16
                 )
         );
 
@@ -280,38 +307,15 @@ public class DialogoCompraVenta extends JDialog {
         gbc.fill =
                 GridBagConstraints.HORIZONTAL;
 
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        7,
-                        0
-                );
-
-        // =====================================================
-        // FECHA
-        // =====================================================
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "Fecha de la operación"
-                ),
-                gbc
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "Fecha de la operación"
         );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        18,
-                        0
-                );
 
         spFecha =
                 new JSpinner(
-                        new SpinnerDateModel()
+                        DialogoUIUtils.crearModeloFechaPeriodoActivo()
                 );
 
         JSpinner.DateEditor editorFecha =
@@ -324,7 +328,26 @@ public class DialogoCompraVenta extends JDialog {
                 editorFecha
         );
 
-        spFecha.setFont(
+        configurarCampo(
+                spFecha
+        );
+
+        agregarCampo(
+                tarjeta,
+                gbc,
+                spFecha
+        );
+
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "Producto"
+        );
+
+        cmbProducto =
+                new JComboBox<>();
+
+        cmbProducto.setFont(
                 new Font(
                         "Segoe UI",
                         Font.PLAIN,
@@ -332,101 +355,125 @@ public class DialogoCompraVenta extends JDialog {
                 )
         );
 
-        spFecha.setPreferredSize(
+        cmbProducto.setPreferredSize(
                 new Dimension(
                         0,
                         38
                 )
         );
 
-        tarjeta.add(
-                spFecha,
-                gbc
+        cmbProducto.addActionListener(
+                e -> productoSeleccionado()
         );
 
-        // =====================================================
-        // MONTO
-        // =====================================================
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        7,
-                        0
-                );
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "COMPRA".equals(tipoOperacion)
-                                ? "Monto total de la compra ($)"
-                                : "Monto total de la venta ($)"
-                ),
-                gbc
+        agregarCampo(
+                tarjeta,
+                gbc,
+                cmbProducto
         );
 
-        gbc.gridy++;
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "Cantidad de unidades"
+        );
 
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        7,
-                        0
+        txtCantidad =
+                crearCampoTexto();
+
+        txtCantidad.setToolTipText(
+                "COMPRA".equals(tipoOperacion)
+                        ? "Ingresa la cantidad física de unidades compradas."
+                        : "Ingresa la cantidad física de unidades vendidas."
+        );
+
+        agregarCampo(
+                tarjeta,
+                gbc,
+                txtCantidad
+        );
+
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "COMPRA".equals(tipoOperacion)
+                        ? "Costo unitario de compra ($)"
+                        : "Precio unitario de venta ($)"
+        );
+
+        txtPrecioUnitario =
+                crearCampoTexto();
+
+        txtPrecioUnitario.setToolTipText(
+                "Puedes cambiar este precio para cada operación."
+        );
+
+        agregarCampo(
+                tarjeta,
+                gbc,
+                txtPrecioUnitario
+        );
+
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "COMPRA".equals(tipoOperacion)
+                        ? "Resumen de compra"
+                        : "Resumen de venta"
+        );
+
+        lblTotalCalculado =
+                new JLabel(
+                        "0"
                 );
 
-        txtMonto =
-                new JTextField();
-
-        txtMonto.setFont(
+        lblTotalCalculado.setFont(
                 new Font(
                         "Segoe UI",
-                        Font.PLAIN,
-                        14
+                        Font.BOLD,
+                        20
                 )
         );
 
-        txtMonto.setPreferredSize(
-                new Dimension(
-                        0,
-                        38
-                )
+        lblTotalCalculado.setForeground(
+                COLOR_PRIMARIO
         );
 
-        txtMonto.setToolTipText(
-                "Ingresa el monto total de la operación."
-        );
-
-        tarjeta.add(
-                txtMonto,
-                gbc
-        );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        18,
-                        0
+        JPanel panelTotal =
+                new JPanel(
+                        new FlowLayout(
+                                FlowLayout.LEFT,
+                                0,
+                                0
+                        )
                 );
 
-        JLabel lblAyudaMonto =
+        panelTotal.setBackground(
+                Color.WHITE
+        );
+
+        panelTotal.add(
+                lblTotalCalculado
+        );
+
+        agregarCampo(
+                tarjeta,
+                gbc,
+                panelTotal
+        );
+
+        JLabel lblAyuda =
                 new JLabel(
                         "<html>"
-                        + "<div style='width:450px;'>"
-                        + "Introduce directamente el valor en dólares "
-                        + "que aparece en el documento contable. "
-                        + "El sistema calculará automáticamente IVA "
-                        + "y las unidades necesarias para el Kardex."
+                        + "<div style='width:460px;'>"
+                        + ("COMPRA".equals(tipoOperacion)
+                            ? "Compra: cantidad × costo unitario = subtotal neto; el IVA se agrega aparte y Kardex usa el costo neto."
+                            : "Venta: cantidad × precio unitario determina el importe base; el IVA se calcula según la configuración y Kardex descuenta las unidades vendidas.")
                         + "</div>"
                         + "</html>"
                 );
 
-        lblAyudaMonto.setFont(
+        lblAyuda.setFont(
                 new Font(
                         "Segoe UI",
                         Font.PLAIN,
@@ -434,55 +481,27 @@ public class DialogoCompraVenta extends JDialog {
                 )
         );
 
-        lblAyudaMonto.setForeground(
+        lblAyuda.setForeground(
                 COLOR_SECUNDARIO
         );
 
-        tarjeta.add(
-                lblAyudaMonto,
-                gbc
+        agregarCampo(
+                tarjeta,
+                gbc,
+                lblAyuda
         );
 
-        // =====================================================
-        // FORMA DE PAGO / COBRO
-        // =====================================================
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        7,
-                        0
-                );
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "COMPRA".equals(tipoOperacion)
-                                ? "Forma de pago"
-                                : "Forma de cobro"
-                ),
-                gbc
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "COMPRA".equals(tipoOperacion)
+                        ? "Forma de pago"
+                        : "Forma de cobro"
         );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        18,
-                        0
-                );
 
         cmbFormaPago =
                 new JComboBox<>(
-                        new String[]{
-                            "EFECTIVO",
-                            "BANCO",
-                            "CREDITO"
-                        }
+                        new String[]{"EFECTIVO", "BANCO", "CREDITO", "MIXTO"}
                 );
 
         cmbFormaPago.setFont(
@@ -500,41 +519,17 @@ public class DialogoCompraVenta extends JDialog {
                 )
         );
 
-        tarjeta.add(
-                cmbFormaPago,
-                gbc
+        agregarCampo(
+                tarjeta,
+                gbc,
+                cmbFormaPago
         );
 
-        // =====================================================
-        // CONCEPTO
-        // =====================================================
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        7,
-                        0
-                );
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "Concepto"
-                ),
-                gbc
+        agregarEtiqueta(
+                tarjeta,
+                gbc,
+                "Concepto"
         );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        0,
-                        0
-                );
 
         txtConcepto =
                 new JTextArea();
@@ -577,10 +572,48 @@ public class DialogoCompraVenta extends JDialog {
                 )
         );
 
-        tarjeta.add(
-                txtConcepto,
-                gbc
+        agregarCampo(
+                tarjeta,
+                gbc,
+                txtConcepto
         );
+
+        DocumentListener listener =
+                new DocumentListener() {
+
+                    @Override
+                    public void insertUpdate(
+                            DocumentEvent e
+                    ) {
+                        actualizarTotal();
+                    }
+
+                    @Override
+                    public void removeUpdate(
+                            DocumentEvent e
+                    ) {
+                        actualizarTotal();
+                    }
+
+                    @Override
+                    public void changedUpdate(
+                            DocumentEvent e
+                    ) {
+                        actualizarTotal();
+                    }
+                };
+
+        txtCantidad
+                .getDocument()
+                .addDocumentListener(
+                        listener
+                );
+
+        txtPrecioUnitario
+                .getDocument()
+                .addDocumentListener(
+                        listener
+                );
 
         fondo.add(
                 tarjeta,
@@ -588,6 +621,136 @@ public class DialogoCompraVenta extends JDialog {
         );
 
         return fondo;
+    }
+
+    private void cargarProductos() {
+
+        try {
+
+            List<Producto> productos =
+                    productoDAO.listarProductosActivos();
+
+            cmbProducto.removeAllItems();
+
+            for (Producto producto : productos) {
+                cmbProducto.addItem(
+                        producto
+                );
+            }
+
+            if (cmbProducto.getItemCount() == 0) {
+
+                btnGuardar.setEnabled(
+                        false
+                );
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "No existen productos activos.",
+                        "Sin productos",
+                        JOptionPane.WARNING_MESSAGE
+                );
+
+                return;
+            }
+
+            cmbProducto.setSelectedIndex(
+                    0
+            );
+
+            productoSeleccionado();
+
+        } catch (Exception e) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    obtenerMensajeError(e),
+                    "No se pudieron cargar los productos",
+                    JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void productoSeleccionado() {
+
+        Producto producto =
+                (Producto) cmbProducto
+                        .getSelectedItem();
+
+        if (producto == null
+                || txtPrecioUnitario == null) {
+            return;
+        }
+
+        BigDecimal precio;
+
+        if ("COMPRA".equals(
+                tipoOperacion
+        )) {
+
+            precio =
+                    producto.getCostoCompra();
+
+        } else {
+
+            precio =
+                    producto.getPrecioVenta();
+        }
+
+        if (precio != null
+                && precio.compareTo(
+                        BigDecimal.ZERO
+                ) > 0) {
+
+            txtPrecioUnitario.setText(
+                    precio
+                            .setScale(
+                                    2,
+                                    RoundingMode.HALF_UP
+                            )
+                            .toPlainString()
+            );
+
+        } else {
+
+            txtPrecioUnitario.setText(
+                    ""
+            );
+        }
+
+        actualizarTotal();
+    }
+
+    private void actualizarTotal() {
+        if (lblTotalCalculado == null) return;
+
+        try {
+            BigDecimal valor = obtenerNumeroOpcional(txtCantidad);
+            BigDecimal precio = obtenerNumeroOpcional(txtPrecioUnitario);
+
+            if (valor == null || precio == null
+                    || valor.compareTo(BigDecimal.ZERO) <= 0
+                    || precio.compareTo(BigDecimal.ZERO) <= 0) {
+                lblTotalCalculado.setText("0");
+                return;
+            }
+
+            BigDecimal subtotal = valor.multiply(precio)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            ResultadoIVA r = "COMPRA".equals(tipoOperacion)
+                    ? calculoIVAService.calcularSobreBase(subtotal)
+                    : calculoIVAService.calcular(subtotal);
+
+            lblTotalCalculado.setText(
+                    "<html>Subtotal $" + r.getSubtotal().setScale(2).toPlainString()
+                    + " &nbsp; IVA $" + r.getIva().setScale(2).toPlainString()
+                    + " &nbsp; Total $" + r.getTotal().setScale(2).toPlainString()
+                    + "</html>"
+            );
+        } catch (Exception e) {
+            lblTotalCalculado.setText("0");
+        }
     }
 
     private JPanel crearBotones() {
@@ -657,70 +820,88 @@ public class DialogoCompraVenta extends JDialog {
     private void guardar() {
 
         try {
+            LocalDate fecha = obtenerFecha();
 
-            LocalDate fecha =
-                    obtenerFecha();
+            Producto producto =
+                    (Producto) cmbProducto.getSelectedItem();
 
-            BigDecimal monto =
-                    obtenerMonto();
-
-            String formaPago =
-                    cmbFormaPago
-                            .getSelectedItem()
-                            .toString();
-
-            String concepto =
-                    txtConcepto
-                            .getText()
-                            .trim();
-
-            String tipoTexto =
-                    "COMPRA".equals(tipoOperacion)
-                            ? "compra"
-                            : "venta";
-
-            int confirmacion =
-                    JOptionPane.showConfirmDialog(
-                            this,
-                            """
-                            ¿Deseas registrar esta %s?
-
-                            Fecha: %s
-                            Monto total: $%,.2f
-                            Forma: %s
-
-                            El sistema calculará automáticamente el IVA
-                            y las unidades para el Kardex.
-                            """.formatted(
-                                    tipoTexto,
-                                    fecha,
-                                    monto,
-                                    formaPago
-                            ),
-                            "Confirmar operación",
-                            JOptionPane.YES_NO_OPTION,
-                            JOptionPane.QUESTION_MESSAGE
-                    );
-
-            if (confirmacion
-                    != JOptionPane.YES_OPTION) {
-
-                return;
+            if (producto == null) {
+                throw new IllegalArgumentException(
+                        "Debe seleccionar un producto."
+                );
             }
 
-            btnGuardar.setEnabled(
-                    false
-            );
+            String formaPago = cmbFormaPago.getSelectedItem().toString();
+            String concepto = txtConcepto.getText().trim();
 
-            if ("COMPRA".equals(
-                    tipoOperacion
-            )) {
+            if ("COMPRA".equals(tipoOperacion)) {
+                BigDecimal cantidad = obtenerNumero(
+                        txtCantidad,
+                        "cantidad de unidades"
+                ).setScale(6, RoundingMode.HALF_UP);
+
+                BigDecimal costoUnitario = obtenerNumero(
+                        txtPrecioUnitario,
+                        "costo unitario"
+                ).setScale(6, RoundingMode.HALF_UP);
+
+                BigDecimal subtotal = cantidad.multiply(costoUnitario)
+                        .setScale(2, RoundingMode.HALF_UP);
+
+                ResultadoIVA calculo =
+                        calculoIVAService.calcularSobreBase(subtotal);
+
+                DistribucionPago distribucion =
+                        construirDistribucionCompra(
+                                formaPago,
+                                calculo.getTotal()
+                        );
+
+                int confirmacion = JOptionPane.showConfirmDialog(
+                        this,
+                        """
+                        ¿Deseas registrar esta compra?
+
+                        Producto: %s
+                        Cantidad: %s
+                        Costo unitario neto: $%,.2f
+                        Subtotal: $%,.2f
+                        IVA: $%,.2f
+                        Total: $%,.2f
+                        Forma: %s
+
+                        Contabilidad: Compras + IVA Crédito Fiscal.
+                        Kardex PEPS: %s unidades a $%,.2f.
+                        """.formatted(
+                                producto.getNombre(),
+                                cantidad.stripTrailingZeros().toPlainString(),
+                                costoUnitario,
+                                calculo.getSubtotal(),
+                                calculo.getIva(),
+                                calculo.getTotal(),
+                                distribucion.obtenerFormaPago(),
+                                cantidad.stripTrailingZeros().toPlainString(),
+                                costoUnitario
+                        ),
+                        "Confirmar compra",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.QUESTION_MESSAGE
+                );
+
+                if (confirmacion != JOptionPane.YES_OPTION) {
+                    return;
+                }
+
+                btnGuardar.setEnabled(false);
 
                 ResultadoCompra resultado =
                         compraService.registrarCompra(
                                 fecha,
-                                monto,
-                                formaPago,
+                                producto.getIdProducto(),
+                                cantidad,
+                                costoUnitario,
+                                distribucion,
+                                "PROVEEDORES",
                                 concepto
                         );
 
@@ -729,24 +910,24 @@ public class DialogoCompraVenta extends JDialog {
                         """
                         Compra registrada correctamente.
 
+                        Producto: %s
+                        Cantidad: %s
+                        Costo unitario: $%,.2f
+                        Compras: $%,.2f
+                        IVA Crédito Fiscal: $%,.2f
+                        Total: $%,.2f
+                        Forma: %s
                         Asiento N.º %d
-
-                        Compras:
-                        $%,.2f
-
-                        IVA Crédito Fiscal:
-                        $%,.2f
-
-                        Total:
-                        $%,.2f
-
-                        Existencia después del movimiento:
-                        %s unidades
+                        Existencia actual: %s unidades
                         """.formatted(
-                                resultado.getNumeroAsiento(),
+                                producto.getNombre(),
+                                cantidad.stripTrailingZeros().toPlainString(),
+                                costoUnitario,
                                 resultado.getSubtotal(),
                                 resultado.getIva(),
                                 resultado.getTotal(),
+                                distribucion.obtenerFormaPago(),
+                                resultado.getNumeroAsiento(),
                                 resultado.getNuevaExistencia()
                                         .stripTrailingZeros()
                                         .toPlainString()
@@ -756,41 +937,94 @@ public class DialogoCompraVenta extends JDialog {
                 );
 
             } else {
+                BigDecimal cantidad = obtenerNumero(
+                        txtCantidad,
+                        "cantidad de unidades"
+                ).setScale(6, RoundingMode.HALF_UP);
 
-                ResultadoVenta resultado =
-                        ventaService.registrarVenta(
-                                fecha,
-                                monto,
-                                formaPago,
-                                concepto
-                        );
+                BigDecimal precioUnitario = obtenerNumero(
+                        txtPrecioUnitario,
+                        "precio unitario"
+                ).setScale(6, RoundingMode.HALF_UP);
+
+                BigDecimal importe = cantidad.multiply(precioUnitario)
+                        .setScale(2, RoundingMode.HALF_UP);
+
+                ResultadoIVA calculo = calculoIVAService.calcular(importe);
+
+                DistribucionPago distribucion = construirDistribucionVenta(
+                        formaPago,
+                        calculo.getTotal()
+                );
+
+                int confirmacion = JOptionPane.showConfirmDialog(
+                        this,
+                        """
+                        ¿Deseas registrar esta venta?
+
+                        Producto: %s
+                        Cantidad: %s
+                        Precio unitario: $%,.2f
+                        Subtotal: $%,.2f
+                        IVA: $%,.2f
+                        Total: $%,.2f
+                        Forma: %s
+
+                        Kardex PEPS: salida de %s unidades.
+                        """.formatted(
+                                producto.getNombre(),
+                                cantidad.stripTrailingZeros().toPlainString(),
+                                precioUnitario,
+                                calculo.getSubtotal(),
+                                calculo.getIva(),
+                                calculo.getTotal(),
+                                distribucion.obtenerFormaPago(),
+                                cantidad.stripTrailingZeros().toPlainString()
+                        ),
+                        "Confirmar venta",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.QUESTION_MESSAGE
+                );
+
+                if (confirmacion != JOptionPane.YES_OPTION) {
+                    return;
+                }
+
+                btnGuardar.setEnabled(false);
+
+                ResultadoVenta resultado = ventaService.registrarVenta(
+                        fecha,
+                        producto.getIdProducto(),
+                        cantidad,
+                        precioUnitario,
+                        distribucion,
+                        concepto
+                );
 
                 JOptionPane.showMessageDialog(
                         this,
                         """
                         Venta registrada correctamente.
 
+                        Producto: %s
+                        Cantidad: %s
+                        Precio unitario de venta: $%,.2f
+                        Ventas: $%,.2f
+                        IVA Débito Fiscal: $%,.2f
+                        Total: $%,.2f
+                        Forma: %s
                         Asiento N.º %d
-
-                        Ventas:
-                        $%,.2f
-
-                        IVA Débito Fiscal:
-                        $%,.2f
-
-                        Total:
-                        $%,.2f
-
-                        Unidades restantes:
-                        %s
-
-                        Saldo del Kardex:
-                        $%,.2f
+                        Unidades restantes: %s
+                        Saldo del Kardex: $%,.2f
                         """.formatted(
-                                resultado.getNumeroAsiento(),
+                                producto.getNombre(),
+                                cantidad.stripTrailingZeros().toPlainString(),
+                                precioUnitario,
                                 resultado.getSubtotal(),
                                 resultado.getIva(),
                                 resultado.getTotal(),
+                                distribucion.obtenerFormaPago(),
+                                resultado.getNumeroAsiento(),
                                 resultado.getNuevaExistencia()
                                         .stripTrailingZeros()
                                         .toPlainString(),
@@ -804,20 +1038,207 @@ public class DialogoCompraVenta extends JDialog {
             dispose();
 
         } catch (Exception e) {
-
             JOptionPane.showMessageDialog(
                     this,
-                    obtenerMensajeError(
-                            e
-                    ),
+                    obtenerMensajeError(e),
                     "No se pudo registrar",
                     JOptionPane.ERROR_MESSAGE
             );
 
-            btnGuardar.setEnabled(
-                    true
+            btnGuardar.setEnabled(true);
+        }
+    }
+
+    private DistribucionPago construirDistribucionCompra(
+            String formaPago,
+            BigDecimal total
+    ) {
+        total = total.setScale(2, RoundingMode.HALF_UP);
+
+        if ("EFECTIVO".equals(formaPago)) {
+            return new DistribucionPago(
+                    total,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO
             );
         }
+
+        if ("BANCO".equals(formaPago)) {
+            return new DistribucionPago(
+                    BigDecimal.ZERO,
+                    total,
+                    BigDecimal.ZERO
+            );
+        }
+
+        if ("CREDITO".equals(formaPago)) {
+            return new DistribucionPago(
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    total
+            );
+        }
+
+        if (!"MIXTO".equals(formaPago)) {
+            throw new IllegalArgumentException("Forma de pago no válida.");
+        }
+
+        JTextField txtPorcentaje = new JTextField("50");
+        JComboBox<String> cmbMedio =
+                new JComboBox<>(new String[]{"BANCO", "EFECTIVO"});
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.weightx = 1;
+
+        agregarCampoSimple(panel, gbc, 0, "% pagado inmediatamente", txtPorcentaje);
+        agregarCampoSimple(panel, gbc, 1, "Medio del pago inmediato", cmbMedio);
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Distribución de pago mixto",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            throw new IllegalArgumentException("Se canceló la distribución del pago mixto.");
+        }
+
+        BigDecimal porcentaje = obtenerNumero(
+                txtPorcentaje,
+                "porcentaje pagado inmediatamente"
+        ).setScale(2, RoundingMode.HALF_UP);
+
+        if (porcentaje.compareTo(BigDecimal.ZERO) <= 0
+                || porcentaje.compareTo(new BigDecimal("100")) >= 0) {
+            throw new IllegalArgumentException(
+                    "El porcentaje del pago inmediato debe ser mayor que 0 y menor que 100."
+            );
+        }
+
+        BigDecimal pagoAhora = total
+                .multiply(porcentaje)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+        BigDecimal credito = total.subtract(pagoAhora)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if ("BANCO".equals(cmbMedio.getSelectedItem())) {
+            return new DistribucionPago(
+                    BigDecimal.ZERO,
+                    pagoAhora,
+                    credito
+            );
+        }
+
+        return new DistribucionPago(
+                pagoAhora,
+                BigDecimal.ZERO,
+                credito
+        );
+    }
+
+    private DistribucionPago construirDistribucionVenta(
+            String formaCobro,
+            BigDecimal total
+    ) {
+        total = total.setScale(2, RoundingMode.HALF_UP);
+
+        if ("EFECTIVO".equals(formaCobro)) {
+            return new DistribucionPago(total, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        if ("BANCO".equals(formaCobro)) {
+            return new DistribucionPago(BigDecimal.ZERO, total, BigDecimal.ZERO);
+        }
+
+        if ("CREDITO".equals(formaCobro)) {
+            return new DistribucionPago(BigDecimal.ZERO, BigDecimal.ZERO, total);
+        }
+
+        if (!"MIXTO".equals(formaCobro)) {
+            throw new IllegalArgumentException("Forma de cobro no válida.");
+        }
+
+        JTextField txtPorcentaje = new JTextField("50");
+        JComboBox<String> cmbMedio =
+                new JComboBox<>(new String[]{"BANCO", "EFECTIVO"});
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.weightx = 1;
+
+        agregarCampoSimple(panel, gbc, 0, "% cobrado inmediatamente", txtPorcentaje);
+        agregarCampoSimple(panel, gbc, 1, "Medio del cobro inmediato", cmbMedio);
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Distribución de cobro mixto",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            throw new IllegalArgumentException("Se canceló la distribución del cobro mixto.");
+        }
+
+        BigDecimal porcentaje = obtenerNumero(
+                txtPorcentaje,
+                "porcentaje cobrado inmediatamente"
+        ).setScale(2, RoundingMode.HALF_UP);
+
+        if (porcentaje.compareTo(BigDecimal.ZERO) <= 0
+                || porcentaje.compareTo(new BigDecimal("100")) >= 0) {
+            throw new IllegalArgumentException(
+                    "El porcentaje del cobro inmediato debe ser mayor que 0 y menor que 100."
+            );
+        }
+
+        BigDecimal cobroAhora = total
+                .multiply(porcentaje)
+                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+        BigDecimal credito = total.subtract(cobroAhora)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if ("BANCO".equals(cmbMedio.getSelectedItem())) {
+            return new DistribucionPago(
+                    BigDecimal.ZERO,
+                    cobroAhora,
+                    credito
+            );
+        }
+
+        return new DistribucionPago(
+                cobroAhora,
+                BigDecimal.ZERO,
+                credito
+        );
+    }
+
+
+    private void agregarCampoSimple(
+            JPanel panel,
+            GridBagConstraints gbc,
+            int fila,
+            String etiqueta,
+            java.awt.Component componente
+    ) {
+        gbc.gridx = 0;
+        gbc.gridy = fila;
+        gbc.weightx = 0.45;
+        panel.add(new JLabel(etiqueta), gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.55;
+        panel.add(componente, gbc);
     }
 
     private LocalDate obtenerFecha() {
@@ -835,10 +1256,48 @@ public class DialogoCompraVenta extends JDialog {
                 .toLocalDate();
     }
 
-    private BigDecimal obtenerMonto() {
+    private BigDecimal obtenerNumero(
+            JTextField campo,
+            String nombre
+    ) {
+
+        BigDecimal numero =
+                obtenerNumeroOpcional(
+                        campo
+                );
+
+        if (numero == null) {
+            throw new IllegalArgumentException(
+                    "Debe ingresar la "
+                    + nombre
+                    + "."
+            );
+        }
+
+        if (numero.compareTo(
+                BigDecimal.ZERO
+        ) <= 0) {
+
+            throw new IllegalArgumentException(
+                    "La "
+                    + nombre
+                    + " debe ser mayor que cero."
+            );
+        }
+
+        return numero;
+    }
+
+    private BigDecimal obtenerNumeroOpcional(
+            JTextField campo
+    ) {
+
+        if (campo == null) {
+            return null;
+        }
 
         String texto =
-                txtMonto
+                campo
                         .getText()
                         .trim()
                         .replace(
@@ -851,10 +1310,7 @@ public class DialogoCompraVenta extends JDialog {
                         );
 
         if (texto.isBlank()) {
-
-            throw new IllegalArgumentException(
-                    "Debe ingresar el monto de la operación."
-            );
+            return null;
         }
 
         texto =
@@ -862,47 +1318,21 @@ public class DialogoCompraVenta extends JDialog {
                         texto
                 );
 
-        BigDecimal monto;
-
         try {
 
-            monto =
-                    new BigDecimal(
-                            texto
-                    );
+            return new BigDecimal(
+                    texto
+            );
 
         } catch (NumberFormatException e) {
 
-            throw new IllegalArgumentException(
-                    "El monto ingresado no es válido."
-            );
+            return null;
         }
-
-        if (monto.compareTo(
-                BigDecimal.ZERO
-        ) <= 0) {
-
-            throw new IllegalArgumentException(
-                    "El monto debe ser mayor que cero."
-            );
-        }
-
-        return monto;
     }
 
     private String normalizarNumero(
             String texto
     ) {
-
-        /*
-         * Admite ejemplos como:
-         *
-         * 10000
-         * 10000.50
-         * 10000,50
-         * 10,000.50
-         * 10.000,50
-         */
 
         boolean tienePunto =
                 texto.contains(
@@ -915,8 +1345,7 @@ public class DialogoCompraVenta extends JDialog {
                 );
 
         if (tienePunto
-                &&
-            tieneComa) {
+                && tieneComa) {
 
             int ultimoPunto =
                     texto.lastIndexOf(
@@ -963,8 +1392,7 @@ public class DialogoCompraVenta extends JDialog {
                     - 1;
 
             if (decimales == 1
-                    ||
-                decimales == 2) {
+                    || decimales == 2) {
 
                 return texto.replace(
                         ",",
@@ -981,6 +1409,113 @@ public class DialogoCompraVenta extends JDialog {
         return texto;
     }
 
+    private JTextField crearCampoTexto() {
+
+        JTextField campo =
+                new JTextField();
+
+        campo.setFont(
+                new Font(
+                        "Segoe UI",
+                        Font.PLAIN,
+                        14
+                )
+        );
+
+        campo.setPreferredSize(
+                new Dimension(
+                        0,
+                        38
+                )
+        );
+
+        campo.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                new Color(
+                                        190,
+                                        195,
+                                        205
+                                )
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                5,
+                                8,
+                                5,
+                                8
+                        )
+                )
+        );
+
+        return campo;
+    }
+
+    private void configurarCampo(
+            JSpinner campo
+    ) {
+
+        campo.setFont(
+                new Font(
+                        "Segoe UI",
+                        Font.PLAIN,
+                        14
+                )
+        );
+
+        campo.setPreferredSize(
+                new Dimension(
+                        0,
+                        38
+                )
+        );
+    }
+
+    private void agregarEtiqueta(
+            JPanel panel,
+            GridBagConstraints gbc,
+            String texto
+    ) {
+
+        gbc.gridy++;
+
+        gbc.insets =
+                new Insets(
+                        0,
+                        0,
+                        7,
+                        0
+                );
+
+        panel.add(
+                crearEtiqueta(
+                        texto
+                ),
+                gbc
+        );
+    }
+
+    private void agregarCampo(
+            JPanel panel,
+            GridBagConstraints gbc,
+            java.awt.Component componente
+    ) {
+
+        gbc.gridy++;
+
+        gbc.insets =
+                new Insets(
+                        0,
+                        0,
+                        18,
+                        0
+                );
+
+        panel.add(
+                componente,
+                gbc
+        );
+    }
+
     private String obtenerMensajeError(
             Throwable error
     ) {
@@ -994,8 +1529,9 @@ public class DialogoCompraVenta extends JDialog {
         while (actual != null) {
 
             if (actual.getMessage() != null
-                    &&
-                !actual.getMessage().isBlank()) {
+                    && !actual
+                            .getMessage()
+                            .isBlank()) {
 
                 ultimoMensaje =
                         actual.getMessage();
@@ -1092,7 +1628,6 @@ public class DialogoCompraVenta extends JDialog {
                     ) {
 
                         if (boton.isEnabled()) {
-
                             boton.setBackground(
                                     COLOR_PRIMARIO_HOVER
                             );
@@ -1104,9 +1639,11 @@ public class DialogoCompraVenta extends JDialog {
                             java.awt.event.MouseEvent e
                     ) {
 
-                        boton.setBackground(
-                                COLOR_PRIMARIO
-                        );
+                        if (boton.isEnabled()) {
+                            boton.setBackground(
+                                    COLOR_PRIMARIO
+                            );
+                        }
                     }
                 }
         );
@@ -1133,11 +1670,7 @@ public class DialogoCompraVenta extends JDialog {
         );
 
         boton.setBackground(
-                new Color(
-                        241,
-                        245,
-                        249
-                )
+                Color.WHITE
         );
 
         boton.setBorder(
@@ -1147,9 +1680,9 @@ public class DialogoCompraVenta extends JDialog {
                         ),
                         BorderFactory.createEmptyBorder(
                                 9,
-                                18,
+                                17,
                                 9,
-                                18
+                                17
                         )
                 )
         );

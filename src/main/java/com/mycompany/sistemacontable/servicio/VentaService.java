@@ -11,6 +11,7 @@ import com.mycompany.sistemacontable.dao.ProductoDAO;
 import com.mycompany.sistemacontable.modelo.AsientoContable;
 import com.mycompany.sistemacontable.modelo.Cuenta;
 import com.mycompany.sistemacontable.modelo.DetalleAsiento;
+import com.mycompany.sistemacontable.modelo.DistribucionPago;
 import com.mycompany.sistemacontable.modelo.MovimientoKardex;
 import com.mycompany.sistemacontable.modelo.Operacion;
 import com.mycompany.sistemacontable.modelo.PeriodoContable;
@@ -37,7 +38,6 @@ public class VentaService {
     private final PeriodoService periodoService;
     private final CalculoIVAService ivaService;
     private final RecalculoKardexService recalculoKardexService;
-
 
     public VentaService() {
 
@@ -66,382 +66,212 @@ public class VentaService {
                 new RecalculoKardexService();
     }
 
-
+    /**
+     * API compatible con las versiones anteriores. Convierte la forma simple
+     * de cobro en una distribución y delega a la lógica única de ventas.
+     */
     public ResultadoVenta registrarVenta(
             LocalDate fecha,
-            BigDecimal montoVenta,
+            int idProducto,
+            BigDecimal montoOperacion,
+            BigDecimal precioUnitario,
             String formaPago,
             String concepto
     ) {
+        if (montoOperacion == null || precioUnitario == null) {
+            throw new IllegalArgumentException("Monto y precio son obligatorios.");
+        }
 
-        // =====================================================
-        // VALIDACIONES
-        // =====================================================
+        BigDecimal precio = precioUnitario.setScale(6, RoundingMode.HALF_UP);
+        BigDecimal monto = montoOperacion.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal cantidad = monto.divide(precio, 6, RoundingMode.HALF_UP);
+        ResultadoIVA calculo = ivaService.calcular(monto);
+        BigDecimal total = calculo.getTotal().setScale(2, RoundingMode.HALF_UP);
 
-        validarDatos(
+        DistribucionPago distribucion = switch (formaPago) {
+            case "EFECTIVO" -> new DistribucionPago(total, BigDecimal.ZERO, BigDecimal.ZERO);
+            case "BANCO" -> new DistribucionPago(BigDecimal.ZERO, total, BigDecimal.ZERO);
+            case "CREDITO" -> new DistribucionPago(BigDecimal.ZERO, BigDecimal.ZERO, total);
+            default -> throw new IllegalArgumentException(
+                    "La venta mixta requiere indicar cuánto se cobra ahora y cuánto queda a crédito."
+            );
+        };
+
+        return registrarVenta(
                 fecha,
-                montoVenta,
-                formaPago
+                idProducto,
+                cantidad,
+                precio,
+                distribucion,
+                concepto
         );
+    }
 
+    /**
+     * Registra una venta con cantidad física, precio unitario y distribución
+     * del cobro. La distribución puede ser efectivo, banco, crédito o MIXTO.
+     * El saldo a crédito siempre se registra contra Clientes.
+     */
+    public ResultadoVenta registrarVenta(
+            LocalDate fecha,
+            int idProducto,
+            BigDecimal cantidad,
+            BigDecimal precioUnitario,
+            DistribucionPago distribucion,
+            String concepto
+    ) {
 
-        periodoService.validarFecha(
-                fecha
-        );
+        validarDatos(fecha, idProducto, cantidad, precioUnitario, distribucion);
+        periodoService.validarFecha(fecha);
 
+        PeriodoContable periodo = periodoService.obtenerPeriodoActivo();
+        if (periodo == null) {
+            throw new IllegalStateException("No existe un período contable activo.");
+        }
 
-        PeriodoContable periodo =
-                periodoService.obtenerPeriodoActivo();
+        BigDecimal cantidadNormalizada = cantidad.setScale(6, RoundingMode.HALF_UP);
+        BigDecimal precioNormalizado = precioUnitario.setScale(6, RoundingMode.HALF_UP);
+        BigDecimal monto = cantidadNormalizada
+                .multiply(precioNormalizado)
+                .setScale(2, RoundingMode.HALF_UP);
 
+        ResultadoIVA resultadoIVA = ivaService.calcular(monto);
+        BigDecimal subtotal = resultadoIVA.getSubtotal().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal iva = resultadoIVA.getIva().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = resultadoIVA.getTotal().setScale(2, RoundingMode.HALF_UP);
 
-        Producto producto =
-                productoDAO.obtenerProductoActivo();
-
-
-        if (producto == null) {
-
-            throw new IllegalStateException(
-                    "No existe un producto activo."
+        if (distribucion.getTotal().compareTo(total) != 0) {
+            throw new IllegalArgumentException(
+                    "La distribución del cobro ($" + distribucion.getTotal()
+                    + ") no coincide con el total de la venta ($" + total + ")."
             );
         }
 
+        Cuenta ventas = cuentaDAO.buscarPorRol("VENTAS");
+        Cuenta ivaDebito = cuentaDAO.buscarPorRol("IVA_DEBITO");
+        Cuenta caja = cuentaDAO.buscarPorCodigo("1.1.01.01");
+        Cuenta banco = cuentaDAO.buscarPorCodigo("1.1.01.02");
+        Cuenta clientes = cuentaDAO.buscarPorCodigo("1.1.02.01");
 
-        if (producto.getPrecioVenta() == null
-                ||
-            producto.getPrecioVenta().compareTo(
-                    BigDecimal.ZERO
-            ) <= 0) {
-
-            throw new IllegalStateException(
-                    "El producto no tiene un precio de venta válido."
-            );
+        validarCuenta(ventas, "Ventas");
+        if (iva.compareTo(BigDecimal.ZERO) > 0) {
+            validarCuenta(ivaDebito, "IVA Débito Fiscal");
+        }
+        if (distribucion.getEfectivo().compareTo(BigDecimal.ZERO) > 0) {
+            validarCuenta(caja, "Caja");
+        }
+        if (distribucion.getBanco().compareTo(BigDecimal.ZERO) > 0) {
+            validarCuenta(banco, "Banco");
+        }
+        if (distribucion.getCredito().compareTo(BigDecimal.ZERO) > 0) {
+            validarCuenta(clientes, "Clientes");
         }
 
-
-        // =====================================================
-        // MONTO INTRODUCIDO POR EL USUARIO
-        // =====================================================
-
-        BigDecimal monto =
-                montoVenta.setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                );
-
-
-        // =====================================================
-        // IVA
-        // =====================================================
-
-        ResultadoIVA resultadoIVA =
-                ivaService.calcular(
-                        monto
-                );
-
-
-        BigDecimal subtotal =
-                resultadoIVA
-                        .getSubtotal()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        BigDecimal iva =
-                resultadoIVA
-                        .getIva()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        BigDecimal total =
-                resultadoIVA
-                        .getTotal()
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        );
-
-
-        // =====================================================
-        // CALCULAR UNIDADES PARA KARDEX
-        // =====================================================
-        //
-        // El usuario introduce DINERO.
-        //
-        // Ejemplo:
-        //
-        // Venta: $12,000
-        // Precio de venta: $20
-        //
-        // 12,000 / 20 = 600 unidades
-        //
-        // =====================================================
-
-        BigDecimal cantidad =
-                monto.divide(
-                        producto.getPrecioVenta(),
-                        6,
-                        RoundingMode.HALF_UP
-                );
-
-
-        if (cantidad.compareTo(
-                BigDecimal.ZERO
-        ) <= 0) {
-
-            throw new IllegalStateException(
-                    "No fue posible calcular las unidades de la venta."
-            );
-        }
-
-
-        // =====================================================
-        // CUENTAS CONTABLES
-        // =====================================================
-
-        Cuenta ventas =
-                cuentaDAO.buscarPorRol(
-                        "VENTAS"
-                );
-
-
-        Cuenta ivaDebito =
-                cuentaDAO.buscarPorRol(
-                        "IVA_DEBITO"
-                );
-
-
-        Cuenta contrapartida =
-                obtenerContrapartida(
-                        formaPago
-                );
-
-
-        validarCuenta(
-                ventas,
-                "Ventas"
-        );
-
-
-        if (iva.compareTo(
-                BigDecimal.ZERO
-        ) > 0) {
-
-            validarCuenta(
-                    ivaDebito,
-                    "IVA Débito Fiscal"
-            );
-        }
-
-
-        validarCuenta(
-                contrapartida,
-                "contrapartida de la venta"
-        );
-
-
-        Connection conexion =
-                null;
-
+        Connection conexion = null;
 
         try {
-
-            conexion =
-                    Conexion.conectar();
-
-
+            conexion = Conexion.conectar();
             if (conexion == null) {
+                throw new SQLException("No se pudo conectar con MySQL.");
+            }
 
-                throw new SQLException(
-                        "No se pudo conectar con MySQL."
+            conexion.setAutoCommit(false);
+
+            Producto producto = productoDAO.buscarPorIdParaActualizar(idProducto, conexion);
+            if (producto == null) {
+                throw new IllegalStateException("No se encontró el producto seleccionado.");
+            }
+            if (!producto.isActivo()) {
+                throw new IllegalStateException("El producto seleccionado está desactivado.");
+            }
+
+            BigDecimal existenciaDisponible = producto.getExistenciaActual() == null
+                    ? BigDecimal.ZERO
+                    : producto.getExistenciaActual();
+
+            if (cantidadNormalizada.compareTo(existenciaDisponible) > 0) {
+                throw new IllegalArgumentException(
+                        "Inventario insuficiente. Se intentan vender "
+                        + cantidadNormalizada.stripTrailingZeros().toPlainString()
+                        + " unidades, pero solo hay "
+                        + existenciaDisponible.stripTrailingZeros().toPlainString()
+                        + " disponibles. No se guardó ninguna operación ni asiento."
                 );
             }
 
+            Operacion operacion = new Operacion();
+            operacion.setIdPeriodo(periodo.getIdPeriodo());
+            operacion.setFecha(fecha);
+            operacion.setTipoOperacion("VENTA");
+            operacion.setConcepto(prepararConcepto(concepto));
+            operacion.setIdProducto(producto.getIdProducto());
+            operacion.setCantidad(cantidadNormalizada);
+            operacion.setPrecioUnitario(precioNormalizado);
+            operacion.setSubtotal(subtotal);
+            operacion.setIva(iva);
+            operacion.setTotal(total);
+            operacion.setFormaPago(distribucion.obtenerFormaPago());
 
-            conexion.setAutoCommit(
-                    false
+            int idOperacion = operacionDAO.insertar(operacion, conexion);
+
+            int numeroAsiento = asientoDAO.obtenerSiguienteNumero(
+                    periodo.getIdPeriodo(), conexion
             );
 
+            AsientoContable asiento = new AsientoContable();
+            asiento.setIdPeriodo(periodo.getIdPeriodo());
+            asiento.setIdOperacion(idOperacion);
+            asiento.setNumeroAsiento(numeroAsiento);
+            asiento.setFecha(fecha);
+            asiento.setConcepto(prepararConcepto(concepto));
+            asiento.setTipoAsiento("AUTOMATICO");
+            asiento.setEstado("CONTABILIZADO");
 
-            // =================================================
-            // 1. OPERACION
-            // =================================================
+            int idAsiento = asientoDAO.insertarAsiento(asiento, conexion);
 
-            Operacion operacion =
-                    new Operacion();
+            if (distribucion.getEfectivo().compareTo(BigDecimal.ZERO) > 0) {
+                insertarDetalle(
+                        idAsiento,
+                        caja,
+                        "Cobro de venta en efectivo",
+                        distribucion.getEfectivo(),
+                        BigDecimal.ZERO,
+                        conexion
+                );
+            }
 
+            if (distribucion.getBanco().compareTo(BigDecimal.ZERO) > 0) {
+                insertarDetalle(
+                        idAsiento,
+                        banco,
+                        "Cobro de venta por banco/cheque",
+                        distribucion.getBanco(),
+                        BigDecimal.ZERO,
+                        conexion
+                );
+            }
 
-            operacion.setIdPeriodo(
-                    periodo.getIdPeriodo()
-            );
-
-
-            operacion.setFecha(
-                    fecha
-            );
-
-
-            operacion.setTipoOperacion(
-                    "VENTA"
-            );
-
-
-            operacion.setConcepto(
-                    prepararConcepto(
-                            concepto
-                    )
-            );
-
-
-            operacion.setIdProducto(
-                    producto.getIdProducto()
-            );
-
-
-            // Las unidades son calculadas automáticamente.
-
-            operacion.setCantidad(
-                    cantidad
-            );
-
-
-            operacion.setPrecioUnitario(
-                    producto.getPrecioVenta()
-            );
-
-
-            operacion.setSubtotal(
-                    subtotal
-            );
-
-
-            operacion.setIva(
-                    iva
-            );
-
-
-            operacion.setTotal(
-                    total
-            );
-
-
-            operacion.setFormaPago(
-                    formaPago
-            );
-
-
-            int idOperacion =
-                    operacionDAO.insertar(
-                            operacion,
-                            conexion
-                    );
-
-
-            // =================================================
-            // 2. NUMERO DE ASIENTO
-            // =================================================
-
-            int numeroAsiento =
-                    asientoDAO.obtenerSiguienteNumero(
-                            periodo.getIdPeriodo(),
-                            conexion
-                    );
-
-
-            // =================================================
-            // 3. ASIENTO CONTABLE
-            // =================================================
-
-            AsientoContable asiento =
-                    new AsientoContable();
-
-
-            asiento.setIdPeriodo(
-                    periodo.getIdPeriodo()
-            );
-
-
-            asiento.setIdOperacion(
-                    idOperacion
-            );
-
-
-            asiento.setNumeroAsiento(
-                    numeroAsiento
-            );
-
-
-            asiento.setFecha(
-                    fecha
-            );
-
-
-            asiento.setConcepto(
-                    prepararConcepto(
-                            concepto
-                    )
-            );
-
-
-            asiento.setTipoAsiento(
-                    "AUTOMATICO"
-            );
-
-
-            asiento.setEstado(
-                    "CONTABILIZADO"
-            );
-
-
-            int idAsiento =
-                    asientoDAO.insertarAsiento(
-                            asiento,
-                            conexion
-                    );
-
-
-            // =================================================
-            // 4. CAJA / BANCO / CLIENTES - DEBE
-            // =================================================
-
-            insertarDetalle(
-                    idAsiento,
-                    contrapartida,
-                    descripcionContrapartida(
-                            formaPago
-                    ),
-                    total,
-                    BigDecimal.ZERO,
-                    conexion
-            );
-
-
-            // =================================================
-            // 5. VENTAS - HABER
-            // =================================================
+            if (distribucion.getCredito().compareTo(BigDecimal.ZERO) > 0) {
+                insertarDetalle(
+                        idAsiento,
+                        clientes,
+                        "Saldo de venta al crédito",
+                        distribucion.getCredito(),
+                        BigDecimal.ZERO,
+                        conexion
+                );
+            }
 
             insertarDetalle(
                     idAsiento,
                     ventas,
-                    "Venta de mercadería",
+                    "Venta de mercadería - " + producto.getNombre(),
                     BigDecimal.ZERO,
                     subtotal,
                     conexion
             );
 
-
-            // =================================================
-            // 6. IVA DEBITO FISCAL - HABER
-            // =================================================
-
-            if (iva.compareTo(
-                    BigDecimal.ZERO
-            ) > 0) {
-
+            if (iva.compareTo(BigDecimal.ZERO) > 0) {
                 insertarDetalle(
                         idAsiento,
                         ivaDebito,
@@ -452,96 +282,44 @@ public class VentaService {
                 );
             }
 
-
-            // =================================================
-            // 7. RECALCULAR KARDEX PEPS
-            // =================================================
-
-            recalculoKardexService.recalcularProducto(
+            productoDAO.actualizarPrecioVenta(
                     producto.getIdProducto(),
+                    precioNormalizado.setScale(2, RoundingMode.HALF_UP),
                     conexion
             );
 
+            recalculoKardexService.recalcularProducto(
+                    producto.getIdProducto(), conexion
+            );
 
-            /*
-             * El recalculador valida también que el inventario
-             * no quede negativo cronológicamente.
-             */
-
-
-            // =================================================
-            // 8. MOVIMIENTO KARDEX GENERADO
-            // =================================================
-
-            MovimientoKardex movimiento =
-                    kardexDAO.buscarMovimientoPorAsiento(
-                            idAsiento,
-                            conexion
-                    );
-
+            MovimientoKardex movimiento = kardexDAO.buscarMovimientoPorAsiento(
+                    idAsiento, conexion
+            );
 
             if (movimiento == null) {
-
                 throw new SQLException(
-                        "No se encontró el movimiento Kardex "
-                        + "generado para la venta."
+                        "No se encontró el movimiento Kardex generado para la venta."
                 );
             }
 
-
-            // =================================================
-            // 9. EXISTENCIA ACTUALIZADA
-            // =================================================
-
-            Producto productoActualizado =
-                    productoDAO.buscarPorId(
-                            producto.getIdProducto(),
-                            conexion
-                    );
-
+            Producto productoActualizado = productoDAO.buscarPorId(
+                    producto.getIdProducto(), conexion
+            );
 
             if (productoActualizado == null) {
-
                 throw new SQLException(
-                        "No se pudo obtener la existencia "
-                        + "actualizada del producto."
+                        "No se pudo obtener la existencia actualizada del producto."
                 );
             }
 
-
-            BigDecimal costoPeps =
-                    movimiento
-                            .getSaldoAcreedor()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            BigDecimal saldoKardex =
-                    movimiento
-                            .getSaldo()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            BigDecimal nuevaExistencia =
-                    productoActualizado
-                            .getExistenciaActual()
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            );
-
-
-            // =================================================
-            // 10. COMMIT
-            // =================================================
+            BigDecimal costoPeps = movimiento.getSaldoAcreedor()
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal saldoKardex = movimiento.getSaldo()
+                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal nuevaExistencia = productoActualizado.getExistenciaActual()
+                    .setScale(6, RoundingMode.HALF_UP);
 
             conexion.commit();
-
 
             return new ResultadoVenta(
                     idOperacion,
@@ -555,60 +333,30 @@ public class VentaService {
                     saldoKardex
             );
 
-
         } catch (Exception e) {
-
             if (conexion != null) {
-
                 try {
-
                     conexion.rollback();
-
                 } catch (SQLException ex) {
-
-                    System.out.println(
-                            "Error al hacer rollback: "
-                            + ex.getMessage()
-                    );
+                    System.out.println("Error al hacer rollback: " + ex.getMessage());
                 }
             }
 
-
             throw new RuntimeException(
-                    "No se pudo registrar la venta: "
-                    + e.getMessage(),
-                    e
+                    "No se pudo registrar la venta: " + e.getMessage(), e
             );
 
-
         } finally {
-
             if (conexion != null) {
-
                 try {
-
-                    conexion.setAutoCommit(
-                            true
-                    );
-
-
+                    conexion.setAutoCommit(true);
                     conexion.close();
-
                 } catch (SQLException e) {
-
-                    System.out.println(
-                            "Error al cerrar conexión: "
-                            + e.getMessage()
-                    );
+                    System.out.println("Error al cerrar conexión: " + e.getMessage());
                 }
             }
         }
     }
-
-
-    // =========================================================
-    // INSERTAR DETALLE
-    // =========================================================
 
     private void insertarDetalle(
             int idAsiento,
@@ -622,21 +370,17 @@ public class VentaService {
         DetalleAsiento detalle =
                 new DetalleAsiento();
 
-
         detalle.setIdAsiento(
                 idAsiento
         );
-
 
         detalle.setIdCuenta(
                 cuenta.getIdCuenta()
         );
 
-
         detalle.setDescripcion(
                 descripcion
         );
-
 
         detalle.setDebe(
                 debe.setScale(
@@ -645,7 +389,6 @@ public class VentaService {
                 )
         );
 
-
         detalle.setHaber(
                 haber.setScale(
                         2,
@@ -653,124 +396,83 @@ public class VentaService {
                 )
         );
 
-
         asientoDAO.insertarDetalle(
                 detalle,
                 conexion
         );
     }
 
-
-    // =========================================================
-    // CONTRAPARTIDA
-    // =========================================================
-
     private Cuenta obtenerContrapartida(
             String formaPago
     ) {
 
-        return switch (
-                formaPago
-        ) {
+        return switch (formaPago) {
 
             case "EFECTIVO" ->
                 cuentaDAO.buscarPorCodigo(
                         "1.1.01.01"
                 );
 
-
             case "BANCO" ->
                 cuentaDAO.buscarPorCodigo(
                         "1.1.01.02"
                 );
-
 
             case "CREDITO" ->
                 cuentaDAO.buscarPorCodigo(
                         "1.1.02.01"
                 );
 
-
             default ->
                 null;
         };
     }
 
-
     private String descripcionContrapartida(
             String formaPago
     ) {
 
-        return switch (
-                formaPago
-        ) {
+        return switch (formaPago) {
 
             case "EFECTIVO" ->
                 "Venta de mercadería al contado";
 
-
             case "BANCO" ->
                 "Venta de mercadería recibida en banco";
 
-
             case "CREDITO" ->
                 "Venta de mercadería al crédito";
-
 
             default ->
                 "Venta de mercadería";
         };
     }
 
-
-    // =========================================================
-    // VALIDACIONES
-    // =========================================================
-
     private void validarDatos(
             LocalDate fecha,
-            BigDecimal montoVenta,
-            String formaPago
+            int idProducto,
+            BigDecimal cantidad,
+            BigDecimal precioUnitario,
+            DistribucionPago distribucion
     ) {
-
         if (fecha == null) {
-
+            throw new IllegalArgumentException("Debe seleccionar una fecha.");
+        }
+        if (idProducto <= 0) {
+            throw new IllegalArgumentException("Debe seleccionar un producto.");
+        }
+        if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cantidad vendida debe ser mayor que cero.");
+        }
+        if (precioUnitario == null || precioUnitario.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
-                    "Debe seleccionar una fecha."
+                    "El precio unitario de venta debe ser mayor que cero."
             );
         }
-
-
-        if (montoVenta == null
-                ||
-            montoVenta.compareTo(
-                    BigDecimal.ZERO
-            ) <= 0) {
-
-            throw new IllegalArgumentException(
-                    "El monto de la venta debe ser mayor que cero."
-            );
-        }
-
-
-        if (!"EFECTIVO".equals(
-                formaPago
-        )
-                &&
-            !"BANCO".equals(
-                formaPago
-        )
-                &&
-            !"CREDITO".equals(
-                formaPago
-        )) {
-
-            throw new IllegalArgumentException(
-                    "Forma de pago no válida."
-            );
+        if (distribucion == null || distribucion.getTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Debe indicar cómo se cobrará la venta.");
         }
     }
-
 
     private void validarCuenta(
             Cuenta cuenta,
@@ -781,44 +483,39 @@ public class VentaService {
 
             throw new IllegalStateException(
                     "No se encontró la cuenta "
-                    + nombre
-                    + "."
+                            + nombre
+                            + "."
             );
         }
-
 
         if (!cuenta.isActivo()) {
 
             throw new IllegalStateException(
                     "La cuenta "
-                    + cuenta.getNombre()
-                    + " está desactivada."
+                            + cuenta.getNombre()
+                            + " está desactivada."
             );
         }
-
 
         if (!cuenta.isPermiteMovimiento()) {
 
             throw new IllegalStateException(
                     "La cuenta "
-                    + cuenta.getNombre()
-                    + " no permite movimientos."
+                            + cuenta.getNombre()
+                            + " no permite movimientos."
             );
         }
     }
-
 
     private String prepararConcepto(
             String concepto
     ) {
 
         if (concepto == null
-                ||
-            concepto.isBlank()) {
+                || concepto.isBlank()) {
 
             return "Venta de mercadería";
         }
-
 
         return concepto.trim();
     }

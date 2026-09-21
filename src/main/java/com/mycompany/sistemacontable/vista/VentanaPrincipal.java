@@ -1,5 +1,8 @@
 package com.mycompany.sistemacontable.vista;
 
+import com.mycompany.sistemacontable.modelo.Usuario;
+import com.mycompany.sistemacontable.servicio.SesionUsuario;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -43,6 +46,8 @@ public class VentanaPrincipal extends JFrame {
     private final Color COLOR_SECUNDARIO =
             new Color(100, 116, 139);
 
+    private final Usuario usuarioActual;
+
     private final CardLayout cardLayout;
     private final JPanel panelContenido;
     private final Map<String, JButton> botonesMenu;
@@ -55,8 +60,14 @@ public class VentanaPrincipal extends JFrame {
     private PanelBalanceGeneral panelBalanceGeneral;
     private PanelKardexPeps panelKardexPeps;
     private PanelConfiguracion panelConfiguracion;
+    private PanelUsuarios panelUsuarios;
+    private PanelAuditoria panelAuditoria;
+    private PanelReportes panelReportes;
+    private PanelPeriodos panelPeriodos;
 
-    public VentanaPrincipal() {
+    public VentanaPrincipal(Usuario usuarioActual) {
+
+        this.usuarioActual = usuarioActual;
 
         cardLayout =
                 new CardLayout();
@@ -81,7 +92,7 @@ public class VentanaPrincipal extends JFrame {
     private void configurarVentana() {
 
         setTitle(
-                "Sistema Contable"
+                "ContaProMax - Sistema Contable"
         );
 
         setDefaultCloseOperation(
@@ -111,6 +122,10 @@ public class VentanaPrincipal extends JFrame {
         getContentPane().setBackground(
                 COLOR_FONDO
         );
+
+        if (MarcaUI.iconoVentana() != null) {
+            setIconImage(MarcaUI.iconoVentana());
+        }
     }
 
     private void construirInterfaz() {
@@ -158,10 +173,8 @@ public class VentanaPrincipal extends JFrame {
                 )
         );
 
-        JLabel logo =
-                new JLabel(
-                        "SISTEMA CONTABLE"
-                );
+        JLabel logo = new JLabel("ContaProMax", MarcaUI.logo(58, 58), JLabel.LEFT);
+        logo.setIconTextGap(10);
 
         logo.setForeground(
                 Color.WHITE
@@ -181,7 +194,7 @@ public class VentanaPrincipal extends JFrame {
 
         JLabel subtitulo =
                 new JLabel(
-                        "Gestión financiera"
+                        MarcaUI.LEMA
                 );
 
         subtitulo.setForeground(
@@ -230,11 +243,13 @@ public class VentanaPrincipal extends JFrame {
                 "Dashboard"
         );
 
-        agregarBotonMenu(
-                panel,
-                "OPERACIONES",
-                "Operaciones"
-        );
+        if (SesionUsuario.puedeRegistrarOperaciones()) {
+            agregarBotonMenu(
+                    panel,
+                    "OPERACIONES",
+                    "Operaciones"
+            );
+        }
 
         agregarBotonMenu(
                 panel,
@@ -272,25 +287,55 @@ public class VentanaPrincipal extends JFrame {
                 "Kardex PEPS"
         );
 
-        agregarBotonMenu(
-                panel,
-                "CATALOGO",
-                "Catálogo de Cuentas"
-        );
+        agregarBotonMenu(panel, "REPORTES", "Generador de Reportes");
 
-        agregarBotonMenu(
-                panel,
-                "CONFIGURACION",
-                "Configuración"
-        );
+        if (SesionUsuario.esAdministrador()) {
+            agregarBotonMenu(panel, "PERIODOS", "Períodos Contables");
+            agregarBotonMenu(panel, "AUDITORIA", "Bitácora de Auditoría");
+        }
+
+        if (SesionUsuario.esAdministrador()) {
+            agregarBotonMenu(
+                    panel,
+                    "CATALOGO",
+                    "Catálogo de Cuentas"
+            );
+
+            agregarBotonMenu(
+                    panel,
+                    "CONFIGURACION",
+                    "Configuración"
+            );
+
+            agregarBotonMenu(
+                    panel,
+                    "USUARIOS",
+                    "Usuarios y Roles"
+            );
+        }
 
         panel.add(
                 Box.createVerticalGlue()
         );
 
+        JLabel sesion = new JLabel(
+                "<html><b>" + usuarioActual.getNombreCompleto() + "</b><br>"
+                + usuarioActual.getRolNombre() + "</html>"
+        );
+        sesion.setForeground(new Color(190, 200, 214));
+        sesion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        sesion.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(sesion);
+        panel.add(Box.createVerticalStrut(10));
+
+        JButton cerrarSesion = crearBotonMenu("Cerrar sesión");
+        cerrarSesion.addActionListener(e -> cerrarSesion());
+        panel.add(cerrarSesion);
+        panel.add(Box.createVerticalStrut(14));
+
         JLabel version =
                 new JLabel(
-                        "Sistema Contable v1.0"
+                        "ContaProMax v2.4-PERIODOS-CERO"
                 );
 
         version.setForeground(
@@ -560,7 +605,7 @@ public class VentanaPrincipal extends JFrame {
 
         JLabel empresa =
                 new JLabel(
-                        "Empresa de Electrodomésticos"
+                        usuarioActual.getNombreCompleto() + " · " + usuarioActual.getRolNombre()
                 );
 
         empresa.setFont(
@@ -604,7 +649,7 @@ public class VentanaPrincipal extends JFrame {
         );
 
         panelLibroDiario =
-                new PanelLibroDiario();
+                new PanelLibroDiario(SesionUsuario.puedeEditarAsientos());
 
         panelContenido.add(
                 panelLibroDiario,
@@ -651,6 +696,15 @@ public class VentanaPrincipal extends JFrame {
                 "KARDEX"
         );
 
+        panelReportes = new PanelReportes();
+        panelContenido.add(panelReportes, "REPORTES");
+        if (SesionUsuario.esAdministrador()) {
+            panelPeriodos = new PanelPeriodos();
+            panelContenido.add(panelPeriodos, "PERIODOS");
+            panelAuditoria = new PanelAuditoria();
+            panelContenido.add(panelAuditoria, "AUDITORIA");
+        }
+
         panelContenido.add(
                 new PanelCatalogoCuentas(),
                 "CATALOGO"
@@ -663,6 +717,11 @@ public class VentanaPrincipal extends JFrame {
                 panelConfiguracion,
                 "CONFIGURACION"
         );
+
+        if (SesionUsuario.esAdministrador()) {
+            panelUsuarios = new PanelUsuarios();
+            panelContenido.add(panelUsuarios, "USUARIOS");
+        }
     }
 
     private JPanel crearDashboard() {
@@ -870,7 +929,7 @@ public class VentanaPrincipal extends JFrame {
                 new JLabel(
                         "<html>"
                         + "<div style='width:700px'>"
-                        + "<h2>Bienvenido al Sistema Contable</h2>"
+                        + "<h2>Bienvenido a ContaProMax</h2>"
                         + "<p>Registra operaciones y consulta automáticamente "
                         + "el Libro Diario, Mayorización, Balance de Comprobación, "
                         + "Estado de Resultados, Balance General y Kardex PEPS.</p>"
@@ -1202,8 +1261,12 @@ public class VentanaPrincipal extends JFrame {
             panelBalanceGeneral.cargarBalanceGeneral();
         } else if ("KARDEX".equals(nombre) && panelKardexPeps != null) {
             panelKardexPeps.cargarKardex();
+        } else if ("AUDITORIA".equals(nombre) && panelAuditoria != null) {
+            panelAuditoria.cargar();
         } else if ("CONFIGURACION".equals(nombre) && panelConfiguracion != null) {
             panelConfiguracion.cargarConfiguracion();
+        } else if ("USUARIOS".equals(nombre) && panelUsuarios != null) {
+            panelUsuarios.cargar();
         }
 
         cardLayout.show(
@@ -1244,6 +1307,18 @@ public class VentanaPrincipal extends JFrame {
                         )
                 );
             }
+        }
+    }
+
+
+    private void cerrarSesion() {
+        int op = javax.swing.JOptionPane.showConfirmDialog(
+                this, "¿Deseas cerrar la sesión actual?", "Cerrar sesión",
+                javax.swing.JOptionPane.YES_NO_OPTION, javax.swing.JOptionPane.QUESTION_MESSAGE);
+        if (op == javax.swing.JOptionPane.YES_OPTION) {
+            SesionUsuario.cerrar();
+            dispose();
+            new VentanaLogin().setVisible(true);
         }
     }
 }

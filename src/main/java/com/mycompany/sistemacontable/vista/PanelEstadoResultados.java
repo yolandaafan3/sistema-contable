@@ -99,11 +99,14 @@ public class PanelEstadoResultados extends JPanel {
 
     public final void cargarEstadoResultados() {
 
+        detalle.removeAll();
+        detalle.revalidate();
+        detalle.repaint();
+
         try {
 
             EstadoResultados estado = service.generar();
 
-            detalle.removeAll();
             int[] fila = {0};
 
             // =====================================================

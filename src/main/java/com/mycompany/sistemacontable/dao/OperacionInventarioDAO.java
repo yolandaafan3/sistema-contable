@@ -25,6 +25,7 @@ public class OperacionInventarioDAO {
         String sql = """
                 SELECT
                     o.id_operacion,
+                    o.id_operacion_origen,
                     ac.id_asiento,
                     o.fecha,
                     o.tipo_operacion,
@@ -41,6 +42,10 @@ public class OperacionInventarioDAO {
 
                 WHERE o.id_producto = ?
                   AND ac.estado = 'CONTABILIZADO'
+                  AND ac.id_periodo = (
+                      SELECT id_periodo FROM periodos_contables
+                      WHERE estado='ABIERTO' ORDER BY id_periodo DESC LIMIT 1
+                  )
 
                   AND o.tipo_operacion IN (
                       'COMPRA',
@@ -48,6 +53,12 @@ public class OperacionInventarioDAO {
                       'DEVOLUCION_COMPRA',
                       'DEVOLUCION_VENTA'
                   )
+                  /*
+                   * Protección adicional: una compra de activo no pertenece al
+                   * Kardex de mercadería, aunque por datos históricos haya quedado
+                   * guardada erróneamente con tipo COMPRA.
+                   */
+                  AND LOWER(TRIM(o.concepto)) NOT LIKE 'compra de activo%'
 
                 ORDER BY
                     o.fecha ASC,
@@ -77,6 +88,9 @@ public class OperacionInventarioDAO {
                     operacion.setIdOperacion(
                             rs.getInt("id_operacion")
                     );
+
+                    int origen = rs.getInt("id_operacion_origen");
+                    operacion.setIdOperacionOrigen(rs.wasNull() ? null : origen);
 
                     operacion.setIdAsiento(
                             rs.getInt("id_asiento")

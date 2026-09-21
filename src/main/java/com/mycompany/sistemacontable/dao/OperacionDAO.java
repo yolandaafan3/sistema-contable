@@ -23,6 +23,7 @@ public class OperacionDAO {
                     tipo_operacion,
                     concepto,
                     id_producto,
+                    id_operacion_origen,
                     cantidad,
                     precio_unitario,
                     subtotal,
@@ -30,7 +31,7 @@ public class OperacionDAO {
                     total,
                     forma_pago
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         try (
@@ -78,17 +79,23 @@ public class OperacionDAO {
                 );
             }
 
+            if (operacion.getIdOperacionOrigen() != null) {
+                ps.setInt(6, operacion.getIdOperacionOrigen());
+            } else {
+                ps.setNull(6, java.sql.Types.INTEGER);
+            }
+
             if (operacion.getCantidad() != null) {
 
                 ps.setBigDecimal(
-                        6,
+                        7,
                         operacion.getCantidad()
                 );
 
             } else {
 
                 ps.setNull(
-                        6,
+                        7,
                         java.sql.Types.DECIMAL
                 );
             }
@@ -96,35 +103,35 @@ public class OperacionDAO {
             if (operacion.getPrecioUnitario() != null) {
 
                 ps.setBigDecimal(
-                        7,
+                        8,
                         operacion.getPrecioUnitario()
                 );
 
             } else {
 
                 ps.setNull(
-                        7,
+                        8,
                         java.sql.Types.DECIMAL
                 );
             }
 
             ps.setBigDecimal(
-                    8,
+                    9,
                     operacion.getSubtotal()
             );
 
             ps.setBigDecimal(
-                    9,
+                    10,
                     operacion.getIva()
             );
 
             ps.setBigDecimal(
-                    10,
+                    11,
                     operacion.getTotal()
             );
 
             ps.setString(
-                    11,
+                    12,
                     operacion.getFormaPago()
             );
 
@@ -136,8 +143,11 @@ public class OperacionDAO {
             ) {
 
                 if (rs.next()) {
-
-                    return rs.getInt(1);
+                    int id = rs.getInt(1);
+                    String nuevo = operacion.getTipoOperacion() + " | fecha=" + operacion.getFecha()
+                            + " | concepto=" + operacion.getConcepto() + " | total=" + operacion.getTotal();
+                    new AuditoriaDAO().registrarSiFalta(conexion, "OPERACION", id, "CREO", null, nuevo);
+                    return id;
                 }
             }
         }

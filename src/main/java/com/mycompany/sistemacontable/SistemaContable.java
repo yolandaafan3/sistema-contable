@@ -1,7 +1,8 @@
 package com.mycompany.sistemacontable;
 
 import com.mycompany.sistemacontable.servicio.InicializacionSistemaService;
-import com.mycompany.sistemacontable.vista.VentanaPrincipal;
+import com.mycompany.sistemacontable.vista.VentanaLogin;
+import com.mycompany.sistemacontable.servicio.InicializacionSeguridadService;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -22,6 +23,8 @@ public class SistemaContable {
 
             inicializacion.prepararCatalogoBase();
 
+            new InicializacionSeguridadService().prepararSeguridad();
+
 
         } catch (Exception e) {
 
@@ -39,8 +42,8 @@ public class SistemaContable {
 
         SwingUtilities.invokeLater(() -> {
 
-            VentanaPrincipal ventana =
-                    new VentanaPrincipal();
+            VentanaLogin ventana =
+                    new VentanaLogin();
 
 
             ventana.setVisible(

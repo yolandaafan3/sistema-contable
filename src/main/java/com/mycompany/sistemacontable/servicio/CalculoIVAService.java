@@ -193,4 +193,70 @@ public class CalculoIVAService {
     );
 }
     
+    /**
+     * Descompone un total que YA incluye IVA. Se usa cuando una factura solo
+     * proporciona el total y necesitamos recuperar la base neta para calcular
+     * el costo unitario de la mercadería.
+     */
+    public ResultadoIVA calcularDesdeTotalConIva(
+            BigDecimal totalConIva
+    ) {
+
+        if (totalConIva == null) {
+            throw new IllegalArgumentException(
+                    "El total no puede estar vacío."
+            );
+        }
+
+        if (totalConIva.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(
+                    "El total no puede ser negativo."
+            );
+        }
+
+        ConfiguracionContable configuracion =
+                configuracionDAO.obtenerConfiguracion();
+
+        if (configuracion == null) {
+            throw new IllegalStateException(
+                    "No existe configuracion contable."
+            );
+        }
+
+        BigDecimal porcentaje =
+                configuracion.getPorcentajeIva()
+                        .divide(
+                                new BigDecimal("100"),
+                                10,
+                                RoundingMode.HALF_UP
+                        );
+
+        BigDecimal total =
+                totalConIva.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                );
+
+        BigDecimal subtotal =
+                total.divide(
+                        BigDecimal.ONE.add(porcentaje),
+                        2,
+                        RoundingMode.HALF_UP
+                );
+
+        BigDecimal iva =
+                total.subtract(subtotal)
+                        .setScale(
+                                2,
+                                RoundingMode.HALF_UP
+                        );
+
+        return new ResultadoIVA(
+                subtotal,
+                iva,
+                total
+        );
+    }
+
+
 }

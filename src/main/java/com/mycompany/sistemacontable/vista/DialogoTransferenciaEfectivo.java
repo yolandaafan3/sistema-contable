@@ -285,7 +285,7 @@ public class DialogoTransferenciaEfectivo extends JDialog {
 
         spFecha =
                 new JSpinner(
-                        new SpinnerDateModel()
+                        DialogoUIUtils.crearModeloFechaPeriodoActivo()
                 );
 
         JSpinner.DateEditor editorFecha =

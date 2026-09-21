@@ -6,6 +6,7 @@ public class Empresa {
     private String nombre;
     private String nit;
     private String nrc;
+    private String giroComercial;
     private String direccion;
     private String telefono;
     private String correo;
@@ -15,18 +16,19 @@ public class Empresa {
     }
 
     public Empresa(int idEmpresa, String nombre, String nit, String nrc,
-                   String direccion, String telefono, String correo,
-                   boolean activo) {
+               String giroComercial, String direccion, String telefono,
+               String correo, boolean activo) {
 
-        this.idEmpresa = idEmpresa;
-        this.nombre = nombre;
-        this.nit = nit;
-        this.nrc = nrc;
-        this.direccion = direccion;
-        this.telefono = telefono;
-        this.correo = correo;
-        this.activo = activo;
-    }
+    this.idEmpresa = idEmpresa;
+    this.nombre = nombre;
+    this.nit = nit;
+    this.nrc = nrc;
+    this.giroComercial = giroComercial;
+    this.direccion = direccion;
+    this.telefono = telefono;
+    this.correo = correo;
+    this.activo = activo;
+}
 
     public int getIdEmpresa() {
         return idEmpresa;
@@ -59,6 +61,13 @@ public class Empresa {
     public void setNrc(String nrc) {
         this.nrc = nrc;
     }
+    public String getGiroComercial() {
+    return giroComercial;
+}
+
+public void setGiroComercial(String giroComercial) {
+    this.giroComercial = giroComercial;
+}
 
     public String getDireccion() {
         return direccion;
