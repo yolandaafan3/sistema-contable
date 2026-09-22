@@ -176,6 +176,16 @@ public class PanelOperaciones extends JPanel {
             )
     );
 
+    asientos.add(
+            crearTarjeta(
+                    "Apertura del Período",
+                    "Registra la apertura del período contable y los valores "
+                    + "iniciales necesarios para comenzar a trabajar.",
+                    "Abrir período",
+                    "APERTURA_PERIODO"
+            )
+    );
+
 
     contenido.add(asientos);
 
@@ -185,7 +195,7 @@ public class PanelOperaciones extends JPanel {
     );
 
 
-    // La apertura del período se administra únicamente desde "Períodos Contables".
+    // Se muestran únicamente los tres accesos esenciales de Operaciones.
 
     JScrollPane scroll =
             new JScrollPane(
@@ -559,6 +569,22 @@ public class PanelOperaciones extends JPanel {
                 SwingUtilities.getWindowAncestor(
                         this
                 );
+
+        if ("APERTURA_PERIODO".equals(
+                operacion
+        )) {
+
+            DialogoAperturaPeriodo dialogo =
+                    new DialogoAperturaPeriodo(
+                            ventana
+                    );
+
+            dialogo.setVisible(
+                    true
+            );
+
+            return;
+        }
 
         if ("TRANSFERENCIA_CAJA_BANCO".equals(
                 operacion

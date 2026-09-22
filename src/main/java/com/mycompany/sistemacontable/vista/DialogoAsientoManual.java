@@ -212,6 +212,9 @@ public class DialogoAsientoManual extends JDialog {
                 "Cobro a cliente",
                 "Pago a proveedor",
                 "Gasto",
+                "Gasto sobre compra",
+                "Pago por anticipado",
+                "Póliza de seguro",
                 "Compra de activo",
                 "Préstamo bancario",
                 "Aporte de capital",
@@ -275,6 +278,9 @@ public class DialogoAsientoManual extends JDialog {
             case "Cobro a cliente" -> "Cobro a cliente";
             case "Pago a proveedor" -> "Pago a proveedor";
             case "Gasto" -> "Gasto";
+            case "Gasto sobre compra" -> "Gasto sobre compra";
+            case "Pago por anticipado" -> "Pago por anticipado";
+            case "Póliza de seguro" -> "Póliza de seguro pagada por anticipado";
             case "Compra de activo" -> "Compra de activo";
             case "Préstamo bancario" -> "Préstamo bancario";
             case "Aporte de capital" -> "Aporte de capital";
@@ -427,6 +433,15 @@ public class DialogoAsientoManual extends JDialog {
                 return;
             } else if ("Gasto".equals(seleccion)) {
                 new DialogoGastoActivo(this, "GASTO").setVisible(true);
+                return;
+            } else if ("Gasto sobre compra".equals(seleccion)) {
+                new DialogoGastoActivo(this, "GASTO_COMPRA").setVisible(true);
+                return;
+            } else if ("Pago por anticipado".equals(seleccion)) {
+                new DialogoGastoActivo(this, "PAGO_ANTICIPADO").setVisible(true);
+                return;
+            } else if ("Póliza de seguro".equals(seleccion)) {
+                new DialogoGastoActivo(this, "POLIZA_SEGURO").setVisible(true);
                 return;
             } else if ("Compra de activo".equals(seleccion)) {
                 new DialogoGastoActivo(this, "COMPRA_ACTIVO").setVisible(true);

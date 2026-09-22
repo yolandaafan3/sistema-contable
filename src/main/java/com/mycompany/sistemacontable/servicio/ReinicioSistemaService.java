@@ -26,6 +26,15 @@ public class ReinicioSistemaService {
             int kardex=ejecutar(c,"DELETE FROM kardex");
             int detalles=ejecutar(c,"DELETE FROM detalle_asientos");
             int asientos=ejecutar(c,"DELETE FROM asientos_contables");
+
+            // Las devoluciones apuntan a su compra/venta original mediante
+            // operaciones.id_operacion_origen. Antes de vaciar operaciones
+            // se rompen únicamente esas referencias internas para que la FK
+            // fk_operacion_origen no impida el reinicio. Todo ocurre dentro
+            // de esta misma transacción; si algo falla, el rollback restaura
+            // también estas referencias.
+            ejecutar(c,"UPDATE operaciones SET id_operacion_origen=NULL WHERE id_operacion_origen IS NOT NULL");
+
             int operaciones=ejecutar(c,"DELETE FROM operaciones");
             ejecutar(c,"DELETE FROM inventario_apertura_lotes");
 

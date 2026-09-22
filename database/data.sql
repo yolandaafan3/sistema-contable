@@ -200,3 +200,20 @@ INSERT INTO catalogo_cuentas
 (codigo,nombre,tipo,clasificacion,naturaleza,rol_reporte,id_cuenta_padre,permite_movimiento,activo)
 SELECT '3.2.02','Resultados acumulados','PATRIMONIO','PATRIMONIO','ACREEDORA','NINGUNO',NULL,TRUE,TRUE
 WHERE NOT EXISTS (SELECT 1 FROM catalogo_cuentas WHERE codigo='3.2.02');
+
+-- Pagos por anticipado
+INSERT INTO catalogo_cuentas
+(codigo, nombre, tipo, clasificacion, naturaleza, rol_reporte, id_cuenta_padre, permite_movimiento, activo)
+SELECT '1.1.05.02', 'Alquileres Pagados por Anticipado', 'ACTIVO', 'CORRIENTE', 'DEUDORA', 'NINGUNO', id_cuenta, TRUE, TRUE
+FROM catalogo_cuentas WHERE codigo='1.1.05'
+ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), activo=TRUE;
+INSERT INTO catalogo_cuentas
+(codigo, nombre, tipo, clasificacion, naturaleza, rol_reporte, id_cuenta_padre, permite_movimiento, activo)
+SELECT '1.1.05.03', 'Papelería y Útiles Pagados por Anticipado', 'ACTIVO', 'CORRIENTE', 'DEUDORA', 'NINGUNO', id_cuenta, TRUE, TRUE
+FROM catalogo_cuentas WHERE codigo='1.1.05'
+ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), activo=TRUE;
+INSERT INTO catalogo_cuentas
+(codigo, nombre, tipo, clasificacion, naturaleza, rol_reporte, id_cuenta_padre, permite_movimiento, activo)
+SELECT '1.1.05.04', 'Servicios Pagados por Anticipado', 'ACTIVO', 'CORRIENTE', 'DEUDORA', 'NINGUNO', id_cuenta, TRUE, TRUE
+FROM catalogo_cuentas WHERE codigo='1.1.05'
+ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), activo=TRUE;

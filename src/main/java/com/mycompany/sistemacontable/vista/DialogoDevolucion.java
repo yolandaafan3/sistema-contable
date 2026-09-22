@@ -53,8 +53,8 @@ public class DialogoDevolucion extends JDialog {
         cmbOrigen=new JComboBox<>();cmbOrigen.addActionListener(e->{actualizarUnidades();actualizarFormaOrigen();});addRow(form,g,esCompra()?"Compra de origen":"Venta de origen",cmbOrigen);
         txtMonto=new JTextField();txtMonto.getDocument().addDocumentListener(new javax.swing.event.DocumentListener(){public void insertUpdate(javax.swing.event.DocumentEvent e){actualizarUnidades();}public void removeUpdate(javax.swing.event.DocumentEvent e){actualizarUnidades();}public void changedUpdate(javax.swing.event.DocumentEvent e){actualizarUnidades();}});addRow(form,g,"Monto de la devolución ($)",txtMonto);
         lblUnidades=new JLabel("0");lblUnidades.setFont(new Font("Segoe UI",Font.BOLD,16));addRow(form,g,"Unidades calculadas",lblUnidades);
-        cmbForma=new JComboBox<>(new String[]{"CREDITO","EFECTIVO","BANCO"});cmbForma.setEnabled(false);addRow(form,g,esCompra()?"Forma según compra original":"Forma según venta original",cmbForma);
-        lblFormaOrigen=new JLabel("Se toma automáticamente de la operación original");lblFormaOrigen.setForeground(new Color(71,85,105));addRow(form,g,"",lblFormaOrigen);
+        cmbForma=new JComboBox<>(new String[]{"CREDITO","EFECTIVO","BANCO","MIXTO"});cmbForma.setEnabled(false);addRow(form,g,esCompra()?"Forma según compra original":"Forma según venta original",cmbForma);
+        lblFormaOrigen=new JLabel("Se toma automáticamente del asiento original; si fue MIXTO, se conserva la misma proporción.");lblFormaOrigen.setForeground(new Color(71,85,105));addRow(form,g,"",lblFormaOrigen);
         txtConcepto=new JTextArea(3,30);txtConcepto.setLineWrap(true);txtConcepto.setWrapStyleWord(true);addRow(form,g,"Concepto",new JScrollPane(txtConcepto));
         JLabel ayuda=new JLabel("<html><div style='width:520px'>La devolución queda vinculada a la operación original. Las unidades se calculan como monto ÷ costo/precio unitario de esa compra o venta. En compra se descuenta del lote original; en venta regresa al inventario al costo PEPS de la venta original.</div></html>");addRow(form,g,"",ayuda);
 
@@ -86,7 +86,7 @@ public class DialogoDevolucion extends JDialog {
         if(cmbForma==null)return;
         OperacionOrigenItem o=(OperacionOrigenItem)cmbOrigen.getSelectedItem();
         if(o==null){cmbForma.setSelectedItem("EFECTIVO");return;}
-        if("CREDITO".equals(o.forma)||"EFECTIVO".equals(o.forma)||"BANCO".equals(o.forma))cmbForma.setSelectedItem(o.forma);
+        if("CREDITO".equals(o.forma)||"EFECTIVO".equals(o.forma)||"BANCO".equals(o.forma)||"MIXTO".equals(o.forma))cmbForma.setSelectedItem(o.forma);
     }
 
     private void actualizarUnidades(){

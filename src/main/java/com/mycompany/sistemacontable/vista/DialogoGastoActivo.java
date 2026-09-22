@@ -115,9 +115,7 @@ public class DialogoGastoActivo extends JDialog {
 
         super(
                 propietario,
-                "GASTO".equals(tipoOperacion)
-                        ? "Registrar Gasto"
-                        : "Compra de Activo",
+                tituloVentana(tipoOperacion),
                 ModalityType.APPLICATION_MODAL
         );
 
@@ -261,21 +259,18 @@ public class DialogoGastoActivo extends JDialog {
         String descripcion;
 
 
-        if (esGasto()) {
-
-            titulo =
-                    "Registrar Gasto";
-
-            descripcion =
-                    "Registra gastos administrativos, de venta, financieros u otros.";
-
+        if (esGastoGeneral()) {
+            titulo = "Registrar Gasto";
+            descripcion = "Registra gastos administrativos, de venta, financieros u otros.";
+        } else if (esGastoCompra()) {
+            titulo = "Gasto sobre Compra";
+            descripcion = "Registra fletes, transporte u otros gastos directamente relacionados con compras.";
+        } else if (esPolizaSeguro()) {
+            titulo = "Póliza de Seguro";
+            descripcion = "Registra una póliza pagada por anticipado como activo corriente.";
         } else {
-
-            titulo =
-                    "Compra de Activo";
-
-            descripcion =
-                    "Registra la adquisición de un activo no corriente.";
+            titulo = "Compra de Activo";
+            descripcion = "Registra la adquisición de un activo no corriente.";
         }
 
 
@@ -477,9 +472,13 @@ public class DialogoGastoActivo extends JDialog {
 
         tarjeta.add(
                 crearEtiqueta(
-                        esGasto()
+                        esGastoGeneral()
                                 ? "Cuenta de gasto"
-                                : "Cuenta de activo"
+                                : esGastoCompra()
+                                        ? "Cuenta de gasto sobre compra"
+                                        : esPolizaSeguro()
+                                                ? "Cuenta de seguro anticipado"
+                                                : "Cuenta de activo"
                 ),
                 gbc
         );
@@ -1232,9 +1231,15 @@ public class DialogoGastoActivo extends JDialog {
 
                 JOptionPane.showMessageDialog(
                         this,
-                        esGasto()
+                        esGastoGeneral()
                                 ? "No existen cuentas de gasto activas que permitan movimientos."
-                                : "No existen cuentas de Activo No Corriente activas que permitan movimientos.",
+                                : esGastoCompra()
+                                        ? "No existe una cuenta activa de Gastos sobre Compras."
+                                        : esPolizaSeguro()
+                                                ? "No existe la cuenta Seguros Pagados por Anticipado."
+                                                : esPagoAnticipado()
+                                                        ? "No existen cuentas activas de Alquiler, Papeleria o Servicios Pagados por Anticipado."
+                                                        : "No existen cuentas de Activo No Corriente activas que permitan movimientos.",
                         "No hay cuentas disponibles",
                         JOptionPane.WARNING_MESSAGE
                 );
@@ -1268,45 +1273,27 @@ public class DialogoGastoActivo extends JDialog {
             Cuenta cuenta
     ) {
 
-        if (esGasto()) {
-
-            if (!"GASTO".equals(
-                    cuenta.getTipo()
-            )) {
-
-                return false;
-            }
-
-
-            String clasificacion =
-                    cuenta.getClasificacion();
-
-
-            return "ADMINISTRATIVO".equals(
-                    clasificacion
-            )
-                    ||
-                   "VENTA".equals(
-                           clasificacion
-                   )
-                    ||
-                   "FINANCIERO".equals(
-                           clasificacion
-                   )
-                    ||
-                   "OTRO".equals(
-                           clasificacion
-                   );
+        if (esGastoGeneral()) {
+            if (!"GASTO".equals(cuenta.getTipo())) return false;
+            String clasificacion = cuenta.getClasificacion();
+            return "ADMINISTRATIVO".equals(clasificacion)
+                    || "VENTA".equals(clasificacion)
+                    || "FINANCIERO".equals(clasificacion)
+                    || "OTRO".equals(clasificacion);
         }
-
-
-        return "ACTIVO".equals(
-                cuenta.getTipo()
-        )
-                &&
-               "NO_CORRIENTE".equals(
-                       cuenta.getClasificacion()
-               );
+        if (esGastoCompra()) {
+            return "COSTO".equals(cuenta.getTipo())
+                    && "GASTOS_COMPRA".equals(cuenta.getRolReporte());
+        }
+        if (esPolizaSeguro()) {
+            return "1.1.05.01".equals(cuenta.getCodigo());
+        }
+        if (esPagoAnticipado()) {
+            String codigo = cuenta.getCodigo();
+            return "1.1.05.02".equals(codigo) || "1.1.05.03".equals(codigo) || "1.1.05.04".equals(codigo);
+        }
+        return "ACTIVO".equals(cuenta.getTipo())
+                && "NO_CORRIENTE".equals(cuenta.getClasificacion());
     }
 
 
@@ -1638,9 +1625,13 @@ public class DialogoGastoActivo extends JDialog {
 
         btnGuardar =
                 new JButton(
-                        esGasto()
+                        esGastoGeneral()
                                 ? "Registrar gasto"
-                                : "Registrar activo"
+                                : esGastoCompra()
+                                        ? "Registrar gasto de compra"
+                                        : esPolizaSeguro()
+                                                ? "Registrar póliza"
+                                                : "Registrar activo"
                 );
 
 
@@ -1763,47 +1754,21 @@ public class DialogoGastoActivo extends JDialog {
             );
 
 
-            if (esGasto()) {
-
-                gastosActivosService
-                        .registrarGasto(
-                                fecha,
-                                monto,
-                                aplicaIva,
-                                cuenta.getIdCuenta(),
-                                distribucion,
-                                concepto
-                        );
-
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Gasto registrado correctamente.\n"
-                        + "El asiento contable fue generado automáticamente.",
-                        "Gasto registrado",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-
+            if (esGastoGeneral()) {
+                gastosActivosService.registrarGasto(fecha,monto,aplicaIva,cuenta.getIdCuenta(),distribucion,concepto);
+                JOptionPane.showMessageDialog(this,"Gasto registrado correctamente.\nEl asiento contable fue generado automáticamente.","Gasto registrado",JOptionPane.INFORMATION_MESSAGE);
+            } else if (esGastoCompra()) {
+                gastosActivosService.registrarGastoCompra(fecha,monto,aplicaIva,cuenta.getIdCuenta(),distribucion,concepto);
+                JOptionPane.showMessageDialog(this,"Gasto sobre compra registrado correctamente.\nEl asiento contable fue generado automáticamente.","Gasto de compra registrado",JOptionPane.INFORMATION_MESSAGE);
+            } else if (esPolizaSeguro()) {
+                gastosActivosService.registrarPolizaSeguro(fecha,monto,aplicaIva,cuenta.getIdCuenta(),distribucion,concepto);
+                JOptionPane.showMessageDialog(this,"Póliza de seguro registrada correctamente.\nQuedó contabilizada como pago anticipado.","Póliza registrada",JOptionPane.INFORMATION_MESSAGE);
+            } else if (esPagoAnticipado()) {
+                gastosActivosService.registrarPagoAnticipado(fecha,monto,aplicaIva,cuenta.getIdCuenta(),distribucion,concepto);
+                JOptionPane.showMessageDialog(this,"Pago anticipado registrado correctamente.\nQuedó contabilizado como Activo Corriente.","Pago anticipado registrado",JOptionPane.INFORMATION_MESSAGE);
             } else {
-
-                gastosActivosService
-                        .registrarCompraActivo(
-                                fecha,
-                                monto,
-                                aplicaIva,
-                                cuenta.getIdCuenta(),
-                                distribucion,
-                                concepto
-                        );
-
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Compra de activo registrada correctamente.\n"
-                        + "El asiento contable fue generado automáticamente.",
-                        "Activo registrado",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
+                gastosActivosService.registrarCompraActivo(fecha,monto,aplicaIva,cuenta.getIdCuenta(),distribucion,concepto);
+                JOptionPane.showMessageDialog(this,"Compra de activo registrada correctamente.\nEl asiento contable fue generado automáticamente.","Activo registrado",JOptionPane.INFORMATION_MESSAGE);
             }
 
 
@@ -2010,11 +1975,19 @@ public class DialogoGastoActivo extends JDialog {
     // TIPO
     // =========================================================
 
-    private boolean esGasto() {
+    private boolean esGastoGeneral() { return "GASTO".equals(tipoOperacion); }
+    private boolean esGastoCompra() { return "GASTO_COMPRA".equals(tipoOperacion); }
+    private boolean esPolizaSeguro() { return "POLIZA_SEGURO".equals(tipoOperacion); }
+    private boolean esPagoAnticipado() { return "PAGO_ANTICIPADO".equals(tipoOperacion); }
 
-        return "GASTO".equals(
-                tipoOperacion
-        );
+    private static String tituloVentana(String tipoOperacion) {
+        return switch (tipoOperacion) {
+            case "GASTO" -> "Registrar Gasto";
+            case "GASTO_COMPRA" -> "Gasto sobre Compra";
+            case "POLIZA_SEGURO" -> "Póliza de Seguro";
+            case "PAGO_ANTICIPADO" -> "Pago por Anticipado";
+            default -> "Compra de Activo";
+        };
     }
 
 

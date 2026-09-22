@@ -116,6 +116,69 @@ public class GastosActivosService {
     }
 
 
+
+    // =====================================================
+    // REGISTRAR GASTO SOBRE COMPRA
+    // =====================================================
+
+    public ResultadoGastoActivo registrarGastoCompra(
+            LocalDate fecha,
+            BigDecimal monto,
+            boolean aplicaIva,
+            int idCuenta,
+            DistribucionPago distribucion,
+            String concepto
+    ) {
+        Cuenta cuenta = cuentaDAO.buscarPorId(idCuenta);
+        validarCuenta(cuenta, "Gastos sobre Compras");
+        if (!"COSTO".equals(cuenta.getTipo()) || !"GASTOS_COMPRA".equals(cuenta.getRolReporte())) {
+            throw new IllegalArgumentException("Debe seleccionar la cuenta Gastos sobre Compras.");
+        }
+        return registrar(fecha, monto, aplicaIva, cuenta, distribucion, concepto, "GASTO_COMPRA");
+    }
+
+    // =====================================================
+    // REGISTRAR POLIZA DE SEGURO PAGADA POR ANTICIPADO
+    // =====================================================
+
+    public ResultadoGastoActivo registrarPolizaSeguro(
+            LocalDate fecha,
+            BigDecimal monto,
+            boolean aplicaIva,
+            int idCuenta,
+            DistribucionPago distribucion,
+            String concepto
+    ) {
+        Cuenta cuenta = cuentaDAO.buscarPorId(idCuenta);
+        validarCuenta(cuenta, "Seguros Pagados por Anticipado");
+        if (!"1.1.05.01".equals(cuenta.getCodigo())) {
+            throw new IllegalArgumentException("Debe seleccionar la cuenta Seguros Pagados por Anticipado.");
+        }
+        return registrar(fecha, monto, aplicaIva, cuenta, distribucion, concepto, "POLIZA_SEGURO");
+    }
+
+
+    // =====================================================
+    // REGISTRAR PAGO ANTICIPADO (ALQUILER / PAPELERIA / SERVICIOS)
+    // =====================================================
+
+    public ResultadoGastoActivo registrarPagoAnticipado(
+            LocalDate fecha,
+            BigDecimal monto,
+            boolean aplicaIva,
+            int idCuenta,
+            DistribucionPago distribucion,
+            String concepto
+    ) {
+        Cuenta cuenta = cuentaDAO.buscarPorId(idCuenta);
+        validarCuenta(cuenta, "Pago por anticipado");
+        String codigo = cuenta.getCodigo();
+        if (!("1.1.05.02".equals(codigo) || "1.1.05.03".equals(codigo) || "1.1.05.04".equals(codigo))) {
+            throw new IllegalArgumentException("Debe seleccionar una cuenta de pago por anticipado (alquiler, papeleria o servicios).");
+        }
+        return registrar(fecha, monto, aplicaIva, cuenta, distribucion, concepto, "PAGO_ANTICIPADO");
+    }
+
     // =====================================================
     // REGISTRO GENERAL
     // =====================================================
