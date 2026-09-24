@@ -10,6 +10,9 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
 
 import java.util.LinkedHashMap;
@@ -23,28 +26,47 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
-import javax.swing.plaf.basic.BasicButtonUI;
 
 public class VentanaPrincipal extends JFrame {
 
     private final Color COLOR_FONDO =
-            new Color(245, 247, 250);
+            Paleta.FONDO;
 
     private final Color COLOR_MENU =
-            new Color(18, 32, 52);
+            Paleta.AZUL_OSCURO;
 
     private final Color COLOR_MENU_HOVER =
-            new Color(31, 49, 73);
+            Paleta.AZUL_HOVER;
 
     private final Color COLOR_ACTIVO =
-            new Color(37, 99, 235);
+            Paleta.ACENTO_OSCURO;
 
     private final Color COLOR_TEXTO =
-            new Color(30, 41, 59);
+            Paleta.TEXTO;
 
     private final Color COLOR_SECUNDARIO =
-            new Color(100, 116, 139);
+            Paleta.TEXTO_SUAVE;
+
+    /** Iconos (unicode) asociados al texto de cada botón del menú lateral. */
+    private String iconoPara(String texto) {
+        switch (texto) {
+            case "Dashboard": return "\u2302";
+            case "Operaciones": return "\u21C4";
+            case "Libro Diario": return "\u2630";
+            case "Mayorización": return "\u2261";
+            case "Balance de Comprobación": return "\u2696";
+            case "Estado de Resultados": return "\u25B2";
+            case "Balance General": return "\u25A4";
+            case "Kardex PEPS": return "\u25A6";
+            case "Catálogo de Cuentas": return "\u2637";
+            case "Configuración": return "\u2699";
+            case "Usuarios y Roles": return "\u263A";
+            case "Cerrar sesión": return "\u23FB";
+            default: return "\u2022";
+        }
+    }
 
     private final Usuario usuarioActual;
 
@@ -136,16 +158,23 @@ public class VentanaPrincipal extends JFrame {
 
     private JPanel crearMenuLateral() {
 
-        JPanel panel =
-                new JPanel();
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                GradientPaint gp = new GradientPaint(0, 0, Paleta.AZUL_OSCURO, 0, getHeight(), Paleta.AZUL_OSCURO_2);
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
 
-        panel.setBackground(
-                COLOR_MENU
-        );
+        panel.setOpaque(false);
 
         panel.setPreferredSize(
                 new Dimension(
-                        255,
+                        260,
                         0
                 )
         );
@@ -166,24 +195,21 @@ public class VentanaPrincipal extends JFrame {
                 )
         );
 
-        JLabel logo =
-                new JLabel(
-                        "SISTEMA CONTABLE"
-                );
+        JLabel iso = new JLabel("\u25C6 SISTEMA CONTABLE");
 
-        logo.setForeground(
+        iso.setForeground(
                 Color.WHITE
         );
 
-        logo.setFont(
+        iso.setFont(
                 new Font(
-                        "Segoe UI",
+                        Paleta.FUENTE,
                         Font.BOLD,
-                        20
+                        18
                 )
         );
 
-        logo.setAlignmentX(
+        iso.setAlignmentX(
                 Component.LEFT_ALIGNMENT
         );
 
@@ -193,16 +219,12 @@ public class VentanaPrincipal extends JFrame {
                 );
 
         subtitulo.setForeground(
-                new Color(
-                        160,
-                        174,
-                        192
-                )
+                Paleta.TEXTO_SIDEBAR_SUAVE
         );
 
         subtitulo.setFont(
                 new Font(
-                        "Segoe UI",
+                        Paleta.FUENTE,
                         Font.PLAIN,
                         12
                 )
@@ -213,7 +235,7 @@ public class VentanaPrincipal extends JFrame {
         );
 
         panel.add(
-                logo
+                iso
         );
 
         panel.add(
@@ -226,9 +248,21 @@ public class VentanaPrincipal extends JFrame {
                 subtitulo
         );
 
+        JSeparator separadorLogo = new JSeparator();
+        separadorLogo.setForeground(new Color(255, 255, 255, 24));
+        separadorLogo.setBackground(new Color(255, 255, 255, 0));
+        separadorLogo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        separadorLogo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+
         panel.add(
                 Box.createVerticalStrut(
-                        32
+                        22
+                )
+        );
+        panel.add(separadorLogo);
+        panel.add(
+                Box.createVerticalStrut(
+                        22
                 )
         );
 
@@ -306,14 +340,22 @@ public class VentanaPrincipal extends JFrame {
                 Box.createVerticalGlue()
         );
 
+        RoundedPanel tarjetaSesion = new RoundedPanel(12);
+        tarjetaSesion.setBackground(new Color(255, 255, 255, 18));
+        tarjetaSesion.setLayout(new BoxLayout(tarjetaSesion, BoxLayout.Y_AXIS));
+        tarjetaSesion.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
+        tarjetaSesion.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tarjetaSesion.setMaximumSize(new Dimension(Integer.MAX_VALUE, 62));
+
         JLabel sesion = new JLabel(
                 "<html><b>" + usuarioActual.getNombreCompleto() + "</b><br>"
                 + usuarioActual.getRolNombre() + "</html>"
         );
-        sesion.setForeground(new Color(190, 200, 214));
-        sesion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        sesion.setForeground(Paleta.TEXTO_SIDEBAR);
+        sesion.setFont(new Font(Paleta.FUENTE, Font.PLAIN, 12));
         sesion.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(sesion);
+        tarjetaSesion.add(sesion);
+        panel.add(tarjetaSesion);
         panel.add(Box.createVerticalStrut(10));
 
         JButton cerrarSesion = crearBotonMenu("Cerrar sesión");
@@ -327,16 +369,12 @@ public class VentanaPrincipal extends JFrame {
                 );
 
         version.setForeground(
-                new Color(
-                        120,
-                        135,
-                        155
-                )
+                Paleta.TEXTO_SIDEBAR_SUAVE
         );
 
         version.setFont(
                 new Font(
-                        "Segoe UI",
+                        Paleta.FUENTE,
                         Font.PLAIN,
                         11
                 )
@@ -390,26 +428,22 @@ public class VentanaPrincipal extends JFrame {
             String texto
     ) {
 
-        JButton boton =
-                new JButton(
-                        texto
-                );
-
-        boton.setUI(
-                new BasicButtonUI()
+        RoundedButton boton = new RoundedButton(
+                "  " + texto,
+                10
         );
 
         boton.setMaximumSize(
                 new Dimension(
                         Integer.MAX_VALUE,
-                        46
+                        44
                 )
         );
 
         boton.setPreferredSize(
                 new Dimension(
                         210,
-                        46
+                        44
                 )
         );
 
@@ -419,83 +453,36 @@ public class VentanaPrincipal extends JFrame {
 
         boton.setFont(
                 new Font(
-                        "Segoe UI",
+                        Paleta.FUENTE,
                         Font.BOLD,
-                        14
+                        13
                 )
         );
 
         boton.setForeground(
-                new Color(
-                        220,
-                        226,
-                        235
-                )
+                Paleta.TEXTO_SIDEBAR
         );
 
-        boton.setBackground(
-                COLOR_MENU
-        );
+        boton.setBackground(COLOR_MENU);
 
-        boton.setBorder(
-                BorderFactory.createEmptyBorder(
-                        0,
-                        15,
-                        0,
-                        10
-                )
-        );
-
-        boton.setFocusPainted(
-                false
-        );
-
-        boton.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
-        );
-
-        boton.setOpaque(
-                true
-        );
-
-        boton.setContentAreaFilled(
-                true
+        boton.setAlignmentX(
+                Component.LEFT_ALIGNMENT
         );
 
         boton.addMouseListener(
                 new java.awt.event.MouseAdapter() {
 
                     @Override
-                    public void mouseEntered(
-                            java.awt.event.MouseEvent evt
-                    ) {
-
-                        if (!boton.getBackground()
-                                .equals(
-                                        COLOR_ACTIVO
-                                )) {
-
-                            boton.setBackground(
-                                    COLOR_MENU_HOVER
-                            );
+                    public void mouseEntered(java.awt.event.MouseEvent evt) {
+                        if (!boton.getBackground().equals(COLOR_ACTIVO)) {
+                            boton.setBackground(COLOR_MENU_HOVER);
                         }
                     }
 
                     @Override
-                    public void mouseExited(
-                            java.awt.event.MouseEvent evt
-                    ) {
-
-                        if (!boton.getBackground()
-                                .equals(
-                                        COLOR_ACTIVO
-                                )) {
-
-                            boton.setBackground(
-                                    COLOR_MENU
-                            );
+                    public void mouseExited(java.awt.event.MouseEvent evt) {
+                        if (!boton.getBackground().equals(COLOR_ACTIVO)) {
+                            boton.setBackground(COLOR_MENU);
                         }
                     }
                 }
@@ -581,7 +568,7 @@ public class VentanaPrincipal extends JFrame {
 
         titulo.setFont(
                 new Font(
-                        "Segoe UI",
+                        Paleta.FUENTE,
                         Font.BOLD,
                         20
                 )
@@ -591,22 +578,54 @@ public class VentanaPrincipal extends JFrame {
                 COLOR_TEXTO
         );
 
+        JPanel bloqueUsuario = new JPanel();
+        bloqueUsuario.setOpaque(false);
+        bloqueUsuario.setLayout(new BoxLayout(bloqueUsuario, BoxLayout.X_AXIS));
+
+        RoundedPanel avatar = new RoundedPanel(20);
+        avatar.setBackground(Paleta.ACENTO_SUAVE);
+        avatar.setLayout(new BorderLayout());
+        avatar.setPreferredSize(new Dimension(36, 36));
+        avatar.setMaximumSize(new Dimension(36, 36));
+        avatar.setBorder(BorderFactory.createEmptyBorder());
+        String inicial = usuarioActual.getNombreCompleto() != null && !usuarioActual.getNombreCompleto().isBlank()
+                ? usuarioActual.getNombreCompleto().substring(0, 1).toUpperCase() : "U";
+        JLabel lblInicial = new JLabel(inicial, SwingConstants.CENTER);
+        lblInicial.setForeground(Paleta.ACENTO_OSCURO);
+        lblInicial.setFont(new Font(Paleta.FUENTE, Font.BOLD, 14));
+        avatar.add(lblInicial, BorderLayout.CENTER);
+
+        JPanel textoUsuario = new JPanel();
+        textoUsuario.setOpaque(false);
+        textoUsuario.setLayout(new BoxLayout(textoUsuario, BoxLayout.Y_AXIS));
+
         JLabel empresa =
                 new JLabel(
-                        usuarioActual.getNombreCompleto() + " · " + usuarioActual.getRolNombre()
+                        usuarioActual.getNombreCompleto()
                 );
 
         empresa.setFont(
                 new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
+                        Paleta.FUENTE,
+                        Font.BOLD,
                         13
                 )
         );
 
         empresa.setForeground(
-                COLOR_SECUNDARIO
+                COLOR_TEXTO
         );
+
+        JLabel rol = new JLabel(usuarioActual.getRolNombre());
+        rol.setFont(new Font(Paleta.FUENTE, Font.PLAIN, 11));
+        rol.setForeground(COLOR_SECUNDARIO);
+
+        textoUsuario.add(empresa);
+        textoUsuario.add(rol);
+
+        bloqueUsuario.add(textoUsuario);
+        bloqueUsuario.add(Box.createHorizontalStrut(12));
+        bloqueUsuario.add(avatar);
 
         panel.add(
                 titulo,
@@ -614,7 +633,7 @@ public class VentanaPrincipal extends JFrame {
         );
 
         panel.add(
-                empresa,
+                bloqueUsuario,
                 BorderLayout.EAST
         );
 
