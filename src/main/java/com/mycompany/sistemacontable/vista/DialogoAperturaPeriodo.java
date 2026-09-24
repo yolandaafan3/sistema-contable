@@ -12,7 +12,10 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.Window;
 
 import java.math.BigDecimal;
@@ -89,27 +92,23 @@ public class DialogoAperturaPeriodo extends JDialog {
 
     private void configurarVentana() {
 
+        setDefaultCloseOperation(
+                JDialog.DISPOSE_ON_CLOSE
+        );
+
         setSize(
-                700,
-                620
+                1180,
+                760
         );
 
         setMinimumSize(
                 new Dimension(
-                        560,
-                        460
+                        920,
+                        680
                 )
         );
 
-        setLocationRelativeTo(
-                getOwner()
-        );
-
         setResizable(true);
-
-        setDefaultCloseOperation(
-                JDialog.DISPOSE_ON_CLOSE
-        );
 
         setLayout(
                 new BorderLayout()
@@ -117,6 +116,14 @@ public class DialogoAperturaPeriodo extends JDialog {
 
         getContentPane().setBackground(
                 COLOR_FONDO
+        );
+
+        if (MarcaUI.iconoVentana() != null) {
+            setIconImage(MarcaUI.iconoVentana());
+        }
+
+        setLocationRelativeTo(
+                getOwner()
         );
     }
 
@@ -143,19 +150,8 @@ public class DialogoAperturaPeriodo extends JDialog {
 
     private JPanel crearEncabezado() {
 
-        JPanel panel =
-                new JPanel();
-
-        panel.setBackground(
-                Color.WHITE
-        );
-
-        panel.setLayout(
-                new BoxLayout(
-                        panel,
-                        BoxLayout.Y_AXIS
-                )
-        );
+        JPanel panel = new JPanel(new BorderLayout(18, 0));
+        panel.setBackground(Color.WHITE);
 
         panel.setBorder(
                 BorderFactory.createCompoundBorder(
@@ -167,36 +163,39 @@ public class DialogoAperturaPeriodo extends JDialog {
                                 COLOR_BORDE
                         ),
                         BorderFactory.createEmptyBorder(
-                                25,
-                                35,
-                                25,
-                                35
+                                20,
+                                32,
+                                20,
+                                32
                         )
                 )
         );
 
-        JLabel titulo =
-                new JLabel(
-                        "Apertura del Período"
-                );
+        JPanel icono = crearIconoCalendario();
 
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(
+                new BoxLayout(
+                        textos,
+                        BoxLayout.Y_AXIS
+                )
+        );
+
+        JLabel titulo = new JLabel("Apertura del Período");
         titulo.setFont(
                 new Font(
                         "Segoe UI",
                         Font.BOLD,
-                        26
+                        28
                 )
         );
+        titulo.setForeground(COLOR_TEXTO);
+        titulo.setAlignmentX(LEFT_ALIGNMENT);
 
-        titulo.setForeground(
-                COLOR_TEXTO
+        JLabel descripcion = new JLabel(
+                "Registra los valores monetarios con los que inicia la empresa."
         );
-
-        JLabel descripcion =
-                new JLabel(
-                        "Registra los valores monetarios con los que inicia la empresa."
-                );
-
         descripcion.setFont(
                 new Font(
                         "Segoe UI",
@@ -204,395 +203,267 @@ public class DialogoAperturaPeriodo extends JDialog {
                         14
                 )
         );
+        descripcion.setForeground(COLOR_SECUNDARIO);
+        descripcion.setAlignmentX(LEFT_ALIGNMENT);
 
-        descripcion.setForeground(
-                COLOR_SECUNDARIO
-        );
+        textos.add(Box.createVerticalGlue());
+        textos.add(titulo);
+        textos.add(Box.createVerticalStrut(4));
+        textos.add(descripcion);
+        textos.add(Box.createVerticalGlue());
 
-        titulo.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
-
-        descripcion.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
-
-        panel.add(
-                titulo
-        );
-
-        panel.add(
-                Box.createVerticalStrut(
-                        5
-                )
-        );
-
-        panel.add(
-                descripcion
-        );
+        panel.add(icono, BorderLayout.WEST);
+        panel.add(textos, BorderLayout.CENTER);
 
         return panel;
     }
 
     private JPanel crearContenido() {
 
-        JPanel fondo =
-                new JPanel(
-                        new BorderLayout()
-                );
-
-        fondo.setBackground(
-                COLOR_FONDO
-        );
-
+        JPanel fondo = new JPanel(new BorderLayout());
+        fondo.setBackground(COLOR_FONDO);
         fondo.setBorder(
                 BorderFactory.createEmptyBorder(
-                        30,
-                        35,
-                        30,
-                        35
+                        24,
+                        32,
+                        24,
+                        32
                 )
         );
 
-        JPanel tarjeta =
-                new JPanel(
-                        new GridBagLayout()
-                );
-
-        tarjeta.setBackground(
-                Color.WHITE
-        );
-
+        JPanel tarjeta = new JPanel(new GridBagLayout());
+        tarjeta.setBackground(Color.WHITE);
         tarjeta.setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                COLOR_BORDE
-                        ),
+                        BorderFactory.createLineBorder(COLOR_BORDE),
                         BorderFactory.createEmptyBorder(
-                                25,
-                                25,
-                                25,
-                                25
+                                24,
+                                26,
+                                24,
+                                26
                         )
                 )
         );
 
-        GridBagConstraints gbc =
-                new GridBagConstraints();
-
+        GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 1;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.anchor = GridBagConstraints.WEST;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        8,
-                        0
-                );
+        gbc.insets = new Insets(0, 0, 7, 0);
 
         tarjeta.add(
-                crearEtiqueta(
-                        "Fecha de apertura"
-                ),
+                crearEtiqueta("Fecha de apertura"),
                 gbc
         );
 
         gbc.gridy++;
+        spFecha = crearSelectorFecha();
+        tarjeta.add(spFecha, gbc);
 
-        spFecha =
-                crearSelectorFecha();
-
+        gbc.gridy++;
+        gbc.insets = new Insets(18, 0, 7, 0);
         tarjeta.add(
-                spFecha,
+                crearEtiqueta("Efectivo inicial ($)"),
                 gbc
         );
 
         gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        20,
-                        0,
-                        8,
-                        0
-                );
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "Efectivo inicial ($)"
-                ),
-                gbc
-        );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        0,
-                        0
-                );
-
-        txtEfectivo =
-                crearCampoTexto();
-
-        txtEfectivo.setText(
-                ""
-        );
-
+        gbc.insets = new Insets(0, 0, 0, 0);
+        txtEfectivo = crearCampoTexto();
+        txtEfectivo.setText("");
         txtEfectivo.setToolTipText(
                 "Ingresa el efectivo disponible al inicio del período."
         );
+        tarjeta.add(txtEfectivo, gbc);
 
+        gbc.gridy++;
+        gbc.insets = new Insets(18, 0, 7, 0);
         tarjeta.add(
-                txtEfectivo,
+                crearEtiqueta("Valor del inventario inicial ($)"),
                 gbc
         );
 
         gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        20,
-                        0,
-                        8,
-                        0
-                );
-
-        tarjeta.add(
-                crearEtiqueta(
-                        "Valor del inventario inicial ($)"
-                ),
-                gbc
-        );
-
-        gbc.gridy++;
-
-        gbc.insets =
-                new Insets(
-                        0,
-                        0,
-                        0,
-                        0
-                );
-
-        txtInventarioInicial =
-                crearCampoTexto();
-
-        txtInventarioInicial.setText(
-                "0.00"
-        );
-
+        gbc.insets = new Insets(0, 0, 0, 0);
+        txtInventarioInicial = crearCampoTexto();
+        txtInventarioInicial.setText("0.00");
         txtInventarioInicial.setEditable(true);
-
         txtInventarioInicial.setToolTipText(
                 "Ingresa manualmente el valor monetario del inventario inicial. Se sumará al efectivo para calcular el Capital Social."
         );
-
-        tarjeta.add(
-                txtInventarioInicial,
-                gbc
-        );
+        tarjeta.add(txtInventarioInicial, gbc);
 
         gbc.gridy++;
-        gbc.insets = new Insets(20, 0, 8, 0);
-        tarjeta.add(crearEtiqueta("Producto del inventario inicial"), gbc);
+        gbc.insets = new Insets(18, 0, 7, 0);
+        tarjeta.add(
+                crearEtiqueta("Producto del inventario inicial"),
+                gbc
+        );
 
         gbc.gridy++;
         gbc.insets = new Insets(0, 0, 0, 0);
         cmbProductoInventario = new JComboBox<>();
-        cmbProductoInventario.setPreferredSize(new Dimension(200, 40));
+        cmbProductoInventario.setFont(
+                new Font(
+                        "Segoe UI",
+                        Font.PLAIN,
+                        14
+                )
+        );
+        cmbProductoInventario.setPreferredSize(new Dimension(200, 42));
+        cmbProductoInventario.setBackground(Color.WHITE);
         try {
             List<Producto> productos = productoDAO.listarProductosActivos();
-            for (Producto p : productos) cmbProductoInventario.addItem(p);
+            for (Producto p : productos) {
+                cmbProductoInventario.addItem(p);
+            }
         } catch (Exception ignored) {
         }
         tarjeta.add(cmbProductoInventario, gbc);
 
         gbc.gridy++;
-        gbc.insets = new Insets(20, 0, 8, 0);
-        tarjeta.add(crearEtiqueta("Costo unitario inicial ($)"), gbc);
+        gbc.insets = new Insets(18, 0, 7, 0);
+        tarjeta.add(
+                crearEtiqueta("Costo unitario inicial ($)"),
+                gbc
+        );
 
         gbc.gridy++;
         gbc.insets = new Insets(0, 0, 0, 0);
         txtCostoInicial = crearCampoTexto();
-        txtCostoInicial.setToolTipText("Costo por unidad del inventario inicial. Este valor no lleva IVA.");
+        txtCostoInicial.setToolTipText(
+                "Costo por unidad del inventario inicial. Este valor no lleva IVA."
+        );
         tarjeta.add(txtCostoInicial, gbc);
 
         gbc.gridy++;
         gbc.insets = new Insets(10, 0, 0, 0);
-        lblUnidadesCalculadas = new JLabel("Unidades iniciales calculadas: 0");
-        lblUnidadesCalculadas.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblUnidadesCalculadas.setForeground(COLOR_AZUL);
+        lblUnidadesCalculadas = crearIndicadorUnidades();
         tarjeta.add(lblUnidadesCalculadas, gbc);
 
         Runnable actualizarCostoYUnidades = () -> {
             Producto seleccionado = (Producto) cmbProductoInventario.getSelectedItem();
-            if (seleccionado != null && (txtCostoInicial.getText() == null || txtCostoInicial.getText().isBlank())) {
+            if (seleccionado != null
+                    && (txtCostoInicial.getText() == null
+                    || txtCostoInicial.getText().isBlank())) {
+
                 BigDecimal costo = seleccionado.getCostoInicial();
-                if (costo != null && costo.compareTo(BigDecimal.ZERO) > 0) {
-                    txtCostoInicial.setText(costo.setScale(2, RoundingMode.HALF_UP).toPlainString());
+
+                if (costo != null
+                        && costo.compareTo(BigDecimal.ZERO) > 0) {
+                    txtCostoInicial.setText(
+                            costo.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                    );
                 }
             }
+
             actualizarUnidadesCalculadas();
         };
 
         cmbProductoInventario.addActionListener(e -> {
             Producto seleccionado = (Producto) cmbProductoInventario.getSelectedItem();
+
             if (seleccionado != null) {
                 BigDecimal costo = seleccionado.getCostoInicial();
-                txtCostoInicial.setText(costo != null && costo.compareTo(BigDecimal.ZERO) > 0
-                        ? costo.setScale(2, RoundingMode.HALF_UP).toPlainString() : "");
+                txtCostoInicial.setText(
+                        costo != null
+                        && costo.compareTo(BigDecimal.ZERO) > 0
+                                ? costo.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                                : ""
+                );
             }
+
             actualizarUnidadesCalculadas();
         });
-        txtInventarioInicial.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-        });
-        txtCostoInicial.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarUnidadesCalculadas(); }
-        });
+
+        txtInventarioInicial.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    @Override
+                    public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+
+                    @Override
+                    public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+
+                    @Override
+                    public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+                }
+        );
+
+        txtCostoInicial.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    @Override
+                    public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+
+                    @Override
+                    public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+
+                    @Override
+                    public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                        actualizarUnidadesCalculadas();
+                    }
+                }
+        );
+
         actualizarCostoYUnidades.run();
 
         gbc.gridy++;
+        gbc.insets = new Insets(20, 0, 0, 0);
+        tarjeta.add(crearTarjetaInformativa(), gbc);
 
-        gbc.insets =
-                new Insets(
-                        25,
-                        0,
-                        0,
-                        0
-                );
-
-        JLabel ayuda =
-                new JLabel(
-                        "<html>"
-                        + "<div style='width:520px;'>"
-                        + "<b>Registro de apertura:</b>"
-                        + "<br><br>"
-                        + "La apertura registra Caja e Inventario al Debe y Capital Social al Haber. "
-                        + "Capital Social = Efectivo inicial + Inventario inicial. "
-                        + "Si existe inventario inicial, selecciona el producto y su costo unitario. "
-                        + "El sistema calculará las unidades como Valor del inventario ÷ Costo unitario, "
-                        + "creará el movimiento y la capa PEPS inicial sin aplicar IVA."
-                        + "</div>"
-                        + "</html>"
-                );
-
-        ayuda.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        ayuda.setForeground(
-                COLOR_SECUNDARIO
-        );
-
-        ayuda.setBorder(
-                BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                new Color(
-                                        191,
-                                        219,
-                                        254
-                                )
-                        ),
-                        BorderFactory.createEmptyBorder(
-                                15,
-                                15,
-                                15,
-                                15
-                        )
-                )
-        );
-
-        ayuda.setOpaque(
-                true
-        );
-
-        ayuda.setBackground(
-                new Color(
-                        239,
-                        246,
-                        255
-                )
-        );
-
-        tarjeta.add(
-                ayuda,
-                gbc
-        );
-
-        fondo.add(
-                tarjeta,
-                BorderLayout.NORTH
-        );
+        fondo.add(tarjeta, BorderLayout.NORTH);
 
         return fondo;
     }
 
     private JPanel crearPie() {
 
-        JPanel panel =
-                new JPanel(
-                        new FlowLayout(
-                                FlowLayout.RIGHT,
-                                12,
-                                15
-                        )
-                );
-
-        panel.setBackground(
-                Color.WHITE
-        );
-
-        panel.setBorder(
-                BorderFactory.createMatteBorder(
-                        1,
-                        0,
-                        0,
-                        0,
-                        COLOR_BORDE
+        JPanel panel = new JPanel(
+                new FlowLayout(
+                        FlowLayout.RIGHT,
+                        12,
+                        14
                 )
         );
 
-        JButton btnCancelar =
-                crearBotonSecundario(
-                        "Cancelar"
-                );
-
-        JButton btnRegistrar =
-                crearBotonPrincipal(
-                        "Registrar apertura"
-                );
-
-        btnCancelar.addActionListener(
-                e -> dispose()
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(
+                                1,
+                                0,
+                                0,
+                                0,
+                                COLOR_BORDE
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                0,
+                                20,
+                                0,
+                                20
+                        )
+                )
         );
 
-        btnRegistrar.addActionListener(
-                e -> registrarApertura()
-        );
+        JButton btnCancelar = crearBotonSecundario("Cancelar");
+        JButton btnRegistrar = crearBotonPrincipal("Registrar apertura");
 
-        panel.add(
-                btnCancelar
-        );
+        btnCancelar.addActionListener(e -> dispose());
+        btnRegistrar.addActionListener(e -> registrarApertura());
 
-        panel.add(
-                btnRegistrar
-        );
+        panel.add(btnCancelar);
+        panel.add(btnRegistrar);
 
         return panel;
     }
@@ -601,11 +472,7 @@ public class DialogoAperturaPeriodo extends JDialog {
             String texto
     ) {
 
-        JLabel label =
-                new JLabel(
-                        texto
-                );
-
+        JLabel label = new JLabel(texto);
         label.setFont(
                 new Font(
                         "Segoe UI",
@@ -613,19 +480,14 @@ public class DialogoAperturaPeriodo extends JDialog {
                         13
                 )
         );
-
-        label.setForeground(
-                COLOR_TEXTO
-        );
+        label.setForeground(COLOR_TEXTO);
 
         return label;
     }
 
     private JTextField crearCampoTexto() {
 
-        JTextField campo =
-                new JTextField();
-
+        JTextField campo = new JTextField();
         campo.setFont(
                 new Font(
                         "Segoe UI",
@@ -633,11 +495,21 @@ public class DialogoAperturaPeriodo extends JDialog {
                         14
                 )
         );
-
-        campo.setPreferredSize(
-                new Dimension(
-                        0,
-                        36
+        campo.setPreferredSize(new Dimension(0, 42));
+        campo.setBackground(Color.WHITE);
+        campo.setForeground(COLOR_TEXTO);
+        campo.setCaretColor(COLOR_AZUL);
+        campo.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                new Color(203, 213, 225)
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                8,
+                                10,
+                                8,
+                                10
+                        )
                 )
         );
 
@@ -646,64 +518,30 @@ public class DialogoAperturaPeriodo extends JDialog {
 
     private JSpinner crearSelectorFecha() {
 
-        Calendar calendario =
-                Calendar.getInstance();
+        Calendar calendario = Calendar.getInstance();
 
-        calendario.set(
-                Calendar.YEAR,
-                2026
+        calendario.set(Calendar.YEAR, 2026);
+        calendario.set(Calendar.MONTH, Calendar.JANUARY);
+        calendario.set(Calendar.DAY_OF_MONTH, 1);
+        calendario.set(Calendar.HOUR_OF_DAY, 12);
+        calendario.set(Calendar.MINUTE, 0);
+        calendario.set(Calendar.SECOND, 0);
+        calendario.set(Calendar.MILLISECOND, 0);
+
+        SpinnerDateModel modelo = new SpinnerDateModel(
+                calendario.getTime(),
+                null,
+                null,
+                Calendar.DAY_OF_MONTH
         );
 
-        calendario.set(
-                Calendar.MONTH,
-                Calendar.JANUARY
-        );
-
-        calendario.set(
-                Calendar.DAY_OF_MONTH,
-                1
-        );
-
-        calendario.set(
-                Calendar.HOUR_OF_DAY,
-                12
-        );
-
-        calendario.set(
-                Calendar.MINUTE,
-                0
-        );
-
-        calendario.set(
-                Calendar.SECOND,
-                0
-        );
-
-        calendario.set(
-                Calendar.MILLISECOND,
-                0
-        );
-
-        SpinnerDateModel modelo =
-                new SpinnerDateModel(
-                        calendario.getTime(),
-                        null,
-                        null,
-                        Calendar.DAY_OF_MONTH
-                );
-
-        JSpinner spinner =
-                new JSpinner(
-                        modelo
-                );
-
+        JSpinner spinner = new JSpinner(modelo);
         spinner.setEditor(
                 new JSpinner.DateEditor(
                         spinner,
                         "dd/MM/yyyy"
                 )
         );
-
         spinner.setFont(
                 new Font(
                         "Segoe UI",
@@ -711,11 +549,11 @@ public class DialogoAperturaPeriodo extends JDialog {
                         14
                 )
         );
-
-        spinner.setPreferredSize(
-                new Dimension(
-                        0,
-                        36
+        spinner.setPreferredSize(new Dimension(0, 42));
+        spinner.setBackground(Color.WHITE);
+        spinner.setBorder(
+                BorderFactory.createLineBorder(
+                        new Color(203, 213, 225)
                 )
         );
 
@@ -726,15 +564,8 @@ public class DialogoAperturaPeriodo extends JDialog {
             String texto
     ) {
 
-        JButton boton =
-                new JButton(
-                        texto
-                );
-
-        boton.setUI(
-                new BasicButtonUI()
-        );
-
+        JButton boton = new JButton(texto);
+        boton.setUI(new BasicButtonUI());
         boton.setFont(
                 new Font(
                         "Segoe UI",
@@ -742,63 +573,31 @@ public class DialogoAperturaPeriodo extends JDialog {
                         13
                 )
         );
-
-        boton.setForeground(
-                Color.WHITE
-        );
-
-        boton.setBackground(
-                COLOR_AZUL
-        );
-
+        boton.setForeground(Color.WHITE);
+        boton.setBackground(COLOR_AZUL);
         boton.setBorder(
                 BorderFactory.createEmptyBorder(
                         11,
-                        20,
+                        22,
                         11,
-                        20
+                        22
                 )
         );
-
-        boton.setFocusPainted(
-                false
-        );
-
-        boton.setOpaque(
-                true
-        );
-
-        boton.setContentAreaFilled(
-                true
-        );
-
-        boton.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
-        );
+        boton.setFocusPainted(false);
+        boton.setOpaque(true);
+        boton.setContentAreaFilled(true);
+        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         boton.addMouseListener(
                 new java.awt.event.MouseAdapter() {
-
                     @Override
-                    public void mouseEntered(
-                            java.awt.event.MouseEvent e
-                    ) {
-
-                        boton.setBackground(
-                                COLOR_AZUL_HOVER
-                        );
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                        boton.setBackground(COLOR_AZUL_HOVER);
                     }
 
                     @Override
-                    public void mouseExited(
-                            java.awt.event.MouseEvent e
-                    ) {
-
-                        boton.setBackground(
-                                COLOR_AZUL
-                        );
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                        boton.setBackground(COLOR_AZUL);
                     }
                 }
         );
@@ -810,15 +609,8 @@ public class DialogoAperturaPeriodo extends JDialog {
             String texto
     ) {
 
-        JButton boton =
-                new JButton(
-                        texto
-                );
-
-        boton.setUI(
-                new BasicButtonUI()
-        );
-
+        JButton boton = new JButton(texto);
+        boton.setUI(new BasicButtonUI());
         boton.setFont(
                 new Font(
                         "Segoe UI",
@@ -826,48 +618,184 @@ public class DialogoAperturaPeriodo extends JDialog {
                         13
                 )
         );
-
-        boton.setForeground(
-                COLOR_TEXTO
-        );
-
-        boton.setBackground(
-                Color.WHITE
-        );
-
+        boton.setForeground(COLOR_TEXTO);
+        boton.setBackground(Color.WHITE);
         boton.setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                COLOR_BORDE
-                        ),
+                        BorderFactory.createLineBorder(COLOR_BORDE),
                         BorderFactory.createEmptyBorder(
                                 10,
-                                18,
+                                20,
                                 10,
-                                18
+                                20
+                        )
+                )
+        );
+        boton.setFocusPainted(false);
+        boton.setOpaque(true);
+        boton.setContentAreaFilled(true);
+        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        boton.addMouseListener(
+                new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                        boton.setBackground(new Color(248, 250, 252));
+                    }
+
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                        boton.setBackground(Color.WHITE);
+                    }
+                }
+        );
+
+        return boton;
+    }
+
+    private JLabel crearIndicadorUnidades() {
+
+        JLabel label = new JLabel("Unidades iniciales calculadas: 0");
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        label.setForeground(COLOR_AZUL);
+        label.setOpaque(true);
+        label.setBackground(new Color(239, 246, 255));
+        label.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                new Color(191, 219, 254)
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                8,
+                                12,
+                                8,
+                                12
                         )
                 )
         );
 
-        boton.setFocusPainted(
-                false
-        );
+        return label;
+    }
 
-        boton.setOpaque(
-                true
-        );
+    private JPanel crearTarjetaInformativa() {
 
-        boton.setContentAreaFilled(
-                true
-        );
-
-        boton.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
+        JPanel panel = new JPanel(new BorderLayout(14, 0));
+        panel.setBackground(new Color(239, 246, 255));
+        panel.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(
+                                new Color(191, 219, 254)
+                        ),
+                        BorderFactory.createEmptyBorder(
+                                14,
+                                16,
+                                14,
+                                16
+                        )
                 )
         );
 
-        return boton;
+        JPanel icono = crearIconoInformacion();
+
+        JLabel ayuda = new JLabel(
+                "<html>"
+                + "<div style='width:760px;'>"
+                + "<b>Registro de apertura</b><br><br>"
+                + "La apertura registra Caja e Inventario al Debe y Capital Social al Haber. "
+                + "Capital Social = Efectivo inicial + Inventario inicial. "
+                + "Si existe inventario inicial, selecciona el producto y su costo unitario. "
+                + "El sistema calculará las unidades como Valor del inventario ÷ Costo unitario, "
+                + "creará el movimiento y la capa PEPS inicial sin aplicar IVA."
+                + "</div>"
+                + "</html>"
+        );
+        ayuda.setFont(
+                new Font(
+                        "Segoe UI",
+                        Font.PLAIN,
+                        12
+                )
+        );
+        ayuda.setForeground(COLOR_SECUNDARIO);
+
+        panel.add(icono, BorderLayout.WEST);
+        panel.add(ayuda, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private JPanel crearIconoCalendario() {
+
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(
+                        RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON
+                );
+
+                g2.setColor(new Color(219, 234, 254));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+
+                int x = 15;
+                int y = 15;
+                int w = 28;
+                int h = 26;
+
+                g2.setColor(COLOR_AZUL);
+                g2.setStroke(new java.awt.BasicStroke(2f));
+                g2.drawRoundRect(x, y + 3, w, h - 3, 5, 5);
+                g2.drawLine(x, y + 11, x + w, y + 11);
+                g2.drawLine(x + 7, y, x + 7, y + 7);
+                g2.drawLine(x + w - 7, y, x + w - 7, y + 7);
+                g2.fillOval(x + 7, y + 16, 4, 4);
+                g2.fillOval(x + 16, y + 16, 4, 4);
+
+                g2.dispose();
+            }
+        };
+
+        panel.setOpaque(false);
+        panel.setPreferredSize(new Dimension(58, 58));
+        panel.setMinimumSize(new Dimension(58, 58));
+        panel.setMaximumSize(new Dimension(58, 58));
+
+        return panel;
+    }
+
+    private JPanel crearIconoInformacion() {
+
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(
+                        RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON
+                );
+
+                g2.setColor(new Color(219, 234, 254));
+                g2.fillOval(2, 2, 32, 32);
+
+                g2.setColor(COLOR_AZUL);
+                g2.setFont(new Font("Segoe UI", Font.BOLD, 20));
+                g2.drawString("i", 16, 25);
+
+                g2.dispose();
+            }
+        };
+
+        panel.setOpaque(false);
+        panel.setPreferredSize(new Dimension(36, 36));
+        panel.setMinimumSize(new Dimension(36, 36));
+        panel.setMaximumSize(new Dimension(36, 36));
+
+        return panel;
     }
 
     private void actualizarUnidadesCalculadas() {

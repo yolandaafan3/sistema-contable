@@ -11,15 +11,23 @@ import com.mycompany.sistemacontable.servicio.AsientoManualService;
 import com.mycompany.sistemacontable.servicio.CalculoIVAService;
 import com.mycompany.sistemacontable.servicio.SugerenciaAsientoService;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.Window;
@@ -33,9 +41,12 @@ import java.util.Date;
 import java.util.List;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -114,11 +125,20 @@ public class DialogoAsientoManual extends JDialog {
 
     private void configurarVentana() {
         setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-        setSize(1120, 820);
-        setMinimumSize(new Dimension(980, 720));
-        setLocationRelativeTo(getOwner());
+
+        Rectangle areaUtil = GraphicsEnvironment
+                .getLocalGraphicsEnvironment()
+                .getMaximumWindowBounds();
+
+        int ancho = Math.min(1480, Math.max(1180, (int) (areaUtil.width * 0.90)));
+        int alto = Math.min(920, Math.max(760, (int) (areaUtil.height * 0.90)));
+
+        setSize(ancho, alto);
+        setMinimumSize(new Dimension(1080, 740));
+        setResizable(true);
         setLayout(new BorderLayout());
         getContentPane().setBackground(COLOR_FONDO);
+        setLocationRelativeTo(getOwner());
     }
 
     private void construirInterfaz() {
@@ -128,50 +148,111 @@ public class DialogoAsientoManual extends JDialog {
     }
 
     private JPanel crearEncabezado() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(16, 0));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE),
-                BorderFactory.createEmptyBorder(20, 28, 20, 28)
+                BorderFactory.createEmptyBorder(18, 28, 18, 28)
         ));
 
-        JLabel titulo = new JLabel(
-                "<html><span style='font-size:20px;'>Asiento Contable</span><br>"
-                + "<span style='font-size:11px; font-weight:normal;'>"
-                + "Describe la operación, revisa las cuentas sugeridas y registra una sola vez. "
-                + "Las compras y ventas de productos actualizan automáticamente el Kardex PEPS."
-                + "</span></html>"
-        );
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        JPanel icono = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                        RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2.setColor(new Color(219, 234, 254));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
+
+                g2.setColor(COLOR_PRIMARIO);
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND,
+                        BasicStroke.JOIN_ROUND));
+
+                int x = 14;
+                int y = 11;
+                int w = getWidth() - 28;
+                int h = getHeight() - 22;
+
+                g2.drawRoundRect(x, y, w, h, 5, 5);
+                g2.drawLine(x + 7, y + 10, x + w - 7, y + 10);
+                g2.drawLine(x + 7, y + 17, x + w - 12, y + 17);
+                g2.drawLine(x + 7, y + 24, x + w - 18, y + 24);
+
+                g2.dispose();
+            }
+        };
+        icono.setOpaque(false);
+        icono.setPreferredSize(new Dimension(52, 52));
+        icono.setMinimumSize(new Dimension(52, 52));
+
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+
+        JLabel titulo = new JLabel("Asiento Contable");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 27));
         titulo.setForeground(COLOR_TEXTO);
-        panel.add(titulo, BorderLayout.WEST);
+        titulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel descripcion = new JLabel(
+                "Describe la operación, revisa las cuentas sugeridas y registra una sola vez. "
+                + "Las compras y ventas de productos actualizan automáticamente el Kardex PEPS."
+        );
+        descripcion.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        descripcion.setForeground(COLOR_SECUNDARIO);
+        descripcion.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        textos.add(titulo);
+        textos.add(Box.createVerticalStrut(4));
+        textos.add(descripcion);
+
+        JLabel estado = new JLabel("NUEVO ASIENTO");
+        estado.setOpaque(true);
+        estado.setBackground(new Color(239, 246, 255));
+        estado.setForeground(COLOR_PRIMARIO);
+        estado.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        estado.setBorder(BorderFactory.createEmptyBorder(7, 11, 7, 11));
+
+        JPanel derecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 7));
+        derecha.setOpaque(false);
+        derecha.add(estado);
+
+        panel.add(icono, BorderLayout.WEST);
+        panel.add(textos, BorderLayout.CENTER);
+        panel.add(derecha, BorderLayout.EAST);
 
         return panel;
     }
 
     private JPanel crearContenido() {
-        JPanel fondo = new JPanel(new BorderLayout(0, 15));
+        JPanel fondo = new JPanel(new BorderLayout(0, 14));
         fondo.setBackground(COLOR_FONDO);
-        fondo.setBorder(BorderFactory.createEmptyBorder(18, 28, 18, 28));
+        fondo.setBorder(BorderFactory.createEmptyBorder(16, 28, 16, 28));
 
         fondo.add(crearDatosGenerales(), BorderLayout.NORTH);
 
-        JPanel centro = new JPanel();
+        JPanel centro = new JPanel(new BorderLayout(0, 12));
         centro.setOpaque(false);
-        centro.setLayout(new javax.swing.BoxLayout(centro, javax.swing.BoxLayout.Y_AXIS));
-        JPanel areaTabla = crearAreaTabla();
-        areaTabla.setPreferredSize(new Dimension(900, 310));
-        centro.add(areaTabla);
-        centro.add(javax.swing.Box.createVerticalStrut(12));
-        panelTs = crearPanelTs();
-        centro.add(panelTs);
 
-        JScrollPane scrollCentro = new JScrollPane(centro);
-        scrollCentro.setBorder(null);
-        scrollCentro.getViewport().setOpaque(false);
-        scrollCentro.setOpaque(false);
-        scrollCentro.getVerticalScrollBar().setUnitIncrement(18);
-        fondo.add(scrollCentro, BorderLayout.CENTER);
+        JPanel areaTabla = crearAreaTabla();
+        areaTabla.setPreferredSize(new Dimension(900, 350));
+        centro.add(areaTabla, BorderLayout.CENTER);
+
+        panelTs = crearPanelTs();
+        JScrollPane scrollTs = new JScrollPane(panelTs);
+        scrollTs.setBorder(null);
+        scrollTs.setOpaque(false);
+        scrollTs.getViewport().setOpaque(false);
+        scrollTs.getVerticalScrollBar().setUnitIncrement(16);
+        scrollTs.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollTs.setPreferredSize(new Dimension(900, 170));
+        scrollTs.setMinimumSize(new Dimension(0, 145));
+
+        centro.add(scrollTs, BorderLayout.SOUTH);
+
+        fondo.add(centro, BorderLayout.CENTER);
         fondo.add(crearResumen(), BorderLayout.SOUTH);
 
         return fondo;
@@ -187,20 +268,41 @@ public class DialogoAsientoManual extends JDialog {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(0, 0, 6, 15);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(0, 0, 6, 16);
+        gbc.weighty = 0;
 
-        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.18;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
         tarjeta.add(crearEtiqueta("Fecha"), gbc);
-        gbc.gridx = 1; gbc.weightx = 0.27;
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.28;
         tarjeta.add(crearEtiqueta("Tipo de operación"), gbc);
-        gbc.gridx = 2; gbc.weightx = 0.55; gbc.insets = new Insets(0, 0, 6, 0);
+
+        gbc.gridx = 2;
+        gbc.weightx = 0.72;
+        gbc.insets = new Insets(0, 0, 6, 0);
         tarjeta.add(crearEtiqueta("Concepto de la operación"), gbc);
 
-        gbc.gridy = 1; gbc.gridx = 0; gbc.weightx = 0.18; gbc.insets = new Insets(0, 0, 0, 15);
         spFecha = new JSpinner(DialogoUIUtils.crearModeloFechaPeriodoActivo());
         spFecha.setEditor(new JSpinner.DateEditor(spFecha, "dd/MM/yyyy"));
         spFecha.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        spFecha.setPreferredSize(new Dimension(0, 42));
+        spFecha.setPreferredSize(new Dimension(175, 42));
+        spFecha.setMinimumSize(new Dimension(175, 42));
+
+        if (spFecha.getEditor() instanceof JSpinner.DefaultEditor editor) {
+            editor.getTextField().setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            editor.getTextField().setHorizontalAlignment(JTextField.CENTER);
+            editor.getTextField().setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
+        }
+
+        gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.weightx = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.insets = new Insets(0, 0, 0, 16);
         tarjeta.add(spFecha, gbc);
 
         cmbTipoOperacion = new JComboBox<>(new String[]{
@@ -221,8 +323,13 @@ public class DialogoAsientoManual extends JDialog {
                 "Otro / asiento manual"
         });
         cmbTipoOperacion.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cmbTipoOperacion.setPreferredSize(new Dimension(250, 42));
+        cmbTipoOperacion.setMinimumSize(new Dimension(220, 42));
         cmbTipoOperacion.addActionListener(e -> aplicarTipoSeleccionado());
-        gbc.gridx = 1; gbc.weightx = 0.27;
+
+        gbc.gridx = 1;
+        gbc.weightx = 0.28;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         tarjeta.add(cmbTipoOperacion, gbc);
 
         txtConcepto = new JTextArea(2, 20);
@@ -231,14 +338,25 @@ public class DialogoAsientoManual extends JDialog {
         txtConcepto.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtConcepto.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(190, 195, 205)),
-                BorderFactory.createEmptyBorder(7, 8, 7, 8)
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
-        gbc.gridx = 2; gbc.weightx = 0.55; gbc.insets = new Insets(0, 0, 0, 0);
+        txtConcepto.setPreferredSize(new Dimension(0, 54));
+
+        gbc.gridx = 2;
+        gbc.weightx = 0.72;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(0, 0, 0, 0);
         tarjeta.add(txtConcepto, gbc);
 
-        gbc.gridy = 2; gbc.gridx = 0; gbc.gridwidth = 3; gbc.weightx = 1; gbc.insets = new Insets(9, 0, 0, 0);
+        gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridwidth = 3;
+        gbc.weightx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 0, 0, 0);
+
         lblEstadoInventario = new JLabel(
-                "Selecciona el tipo de operación. Para compras y ventas el sistema solicitará producto, monto y valor unitario."
+                "ⓘ  Selecciona el tipo de operación. Para compras y ventas el sistema solicitará producto, monto y valor unitario."
         );
         lblEstadoInventario.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblEstadoInventario.setForeground(COLOR_SECUNDARIO);
@@ -289,16 +407,32 @@ public class DialogoAsientoManual extends JDialog {
     }
 
     private JPanel crearAreaTabla() {
-        JPanel panel = new JPanel(new BorderLayout(0, 10));
-        panel.setOpaque(false);
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(14, 16, 16, 16)
+        ));
 
-        JPanel encabezado = new JPanel(new BorderLayout());
+        JPanel encabezado = new JPanel(new BorderLayout(12, 0));
         encabezado.setOpaque(false);
 
+        JPanel tituloPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        tituloPanel.setOpaque(false);
+
+        JLabel marca = new JLabel("●");
+        marca.setForeground(COLOR_PRIMARIO);
+        marca.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
         JLabel titulo = new JLabel("Detalle del asiento");
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 17));
         titulo.setForeground(COLOR_TEXTO);
-        encabezado.add(titulo, BorderLayout.WEST);
+        titulo.setBorder(BorderFactory.createEmptyBorder(0, 7, 0, 0));
+
+        tituloPanel.add(marca);
+        tituloPanel.add(titulo);
+
+        encabezado.add(tituloPanel, BorderLayout.WEST);
         encabezado.add(crearBotonesLineas(), BorderLayout.EAST);
 
         modeloTabla = new DefaultTableModel(
@@ -316,12 +450,18 @@ public class DialogoAsientoManual extends JDialog {
         };
 
         tabla = new JTable(modeloTabla);
-        tabla.setRowHeight(34);
+        tabla.setRowHeight(36);
         tabla.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         tabla.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tabla.getTableHeader().setPreferredSize(new Dimension(0, 34));
+        tabla.getTableHeader().setBackground(new Color(248, 250, 252));
+        tabla.getTableHeader().setForeground(COLOR_TEXTO);
         tabla.setGridColor(COLOR_BORDE);
         tabla.setSelectionBackground(new Color(219, 234, 254));
         tabla.setSelectionForeground(COLOR_TEXTO);
+        tabla.setFillsViewportHeight(true);
+        tabla.setShowVerticalLines(true);
+        tabla.setShowHorizontalLines(true);
 
         cmbEditorCuenta = new JComboBox<>();
         cmbEditorCuenta.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -995,102 +1135,278 @@ public class DialogoAsientoManual extends JDialog {
 
         actualizarControlesPago.run();
 
-        JPanel formulario = new JPanel(new GridBagLayout());
-        formulario.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        configurarCampoKardex(txtBuscar);
+        configurarCampoKardex(txtCantidadOperacion);
+        configurarCampoKardex(txtPrecio);
+        configurarCampoKardex(txtSubtotalCompra);
+        configurarCampoKardex(txtTotalFacturaCompra);
+        configurarCampoKardex(txtPorcentajeInmediato);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.weightx = 1;
+        configurarComboKardex(cmbProducto);
+        configurarComboKardex(cmbFormaPago);
+        configurarComboKardex(cmbCuentaCredito);
+        configurarComboKardex(cmbMedioInmediato);
 
-        int fila = 0;
-        agregarCampo(formulario, gbc, fila++, "Buscar producto", txtBuscar);
-        agregarCampo(formulario, gbc, fila++, "Producto", cmbProducto);
-        agregarCampo(formulario, gbc, fila++, "Cantidad de unidades", txtCantidadOperacion);
-
-        agregarCampo(
-                formulario,
-                gbc,
-                fila++,
+        JPanel tarjetaProducto = crearTarjetaKardex(
+                "Producto e importes",
                 esCompra
-                        ? "Costo unitario neto ($)"
-                        : "Precio unitario de venta ($)",
+                        ? "Selecciona la mercadería y completa el costo de la compra."
+                        : "Selecciona la mercadería y completa los datos de la venta."
+        );
+
+        JPanel camposProducto = new JPanel(new GridBagLayout());
+        camposProducto.setOpaque(false);
+
+        GridBagConstraints gp = new GridBagConstraints();
+        gp.fill = GridBagConstraints.HORIZONTAL;
+        gp.anchor = GridBagConstraints.WEST;
+        gp.insets = new Insets(6, 0, 6, 12);
+        gp.weightx = 1;
+
+        int filaProducto = 0;
+        agregarCampoKardex(camposProducto, gp, filaProducto++, "Buscar producto", txtBuscar);
+        agregarCampoKardex(camposProducto, gp, filaProducto++, "Producto", cmbProducto);
+        agregarCampoKardex(camposProducto, gp, filaProducto++, "Cantidad de unidades", txtCantidadOperacion);
+
+        agregarCampoKardex(
+                camposProducto,
+                gp,
+                filaProducto++,
+                esCompra ? "Costo unitario neto ($)" : "Precio unitario de venta ($)",
                 txtPrecio
         );
 
         if (esCompra) {
-            agregarCampo(
-                    formulario,
-                    gbc,
-                    fila++,
-                    "Subtotal sin IVA ($) (alternativa al costo unitario)",
+            agregarCampoKardex(
+                    camposProducto,
+                    gp,
+                    filaProducto++,
+                    "Subtotal sin IVA ($)",
                     txtSubtotalCompra
             );
-
-            agregarCampo(
-                    formulario,
-                    gbc,
-                    fila++,
-                    "Total factura con IVA ($) (alternativa)",
+            agregarCampoKardex(
+                    camposProducto,
+                    gp,
+                    filaProducto++,
+                    "Total factura con IVA ($)",
                     txtTotalFacturaCompra
             );
         }
 
-        agregarCampo(formulario, gbc, fila++, "Cálculo de la operación", lblCalculo);
-        agregarCampo(formulario, gbc, fila++, "Forma de pago/cobro", cmbFormaPago);
+        lblReferencia.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 
-        agregarCampo(
-                formulario,
-                gbc,
-                fila++,
-                esCompra
-                        ? "Cuenta por pagar (crédito o mixto)"
-                        : "Cuenta por cobrar (crédito o mixto)",
+        JPanel contenidoProducto = new JPanel(new BorderLayout(0, 8));
+        contenidoProducto.setOpaque(false);
+        contenidoProducto.add(camposProducto, BorderLayout.CENTER);
+        contenidoProducto.add(lblReferencia, BorderLayout.SOUTH);
+        tarjetaProducto.add(contenidoProducto, BorderLayout.CENTER);
+
+        JPanel tarjetaCalculo = new JPanel(new BorderLayout(12, 0));
+        tarjetaCalculo.setBackground(new Color(239, 246, 255));
+        tarjetaCalculo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(191, 219, 254)),
+                BorderFactory.createEmptyBorder(13, 15, 13, 15)
+        ));
+
+        JLabel iconoCalculo = new JLabel("$", JLabel.CENTER);
+        iconoCalculo.setOpaque(true);
+        iconoCalculo.setBackground(new Color(219, 234, 254));
+        iconoCalculo.setForeground(COLOR_PRIMARIO);
+        iconoCalculo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        iconoCalculo.setPreferredSize(new Dimension(42, 42));
+
+        JPanel textosCalculo = new JPanel();
+        textosCalculo.setOpaque(false);
+        textosCalculo.setLayout(new BoxLayout(textosCalculo, BoxLayout.Y_AXIS));
+
+        JLabel tituloCalculo = new JLabel("Cálculo de la operación");
+        tituloCalculo.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tituloCalculo.setForeground(COLOR_TEXTO);
+
+        lblCalculo.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblCalculo.setForeground(COLOR_PRIMARIO);
+
+        textosCalculo.add(tituloCalculo);
+        textosCalculo.add(Box.createVerticalStrut(4));
+        textosCalculo.add(lblCalculo);
+
+        tarjetaCalculo.add(iconoCalculo, BorderLayout.WEST);
+        tarjetaCalculo.add(textosCalculo, BorderLayout.CENTER);
+
+        JPanel tarjetaPago = crearTarjetaKardex(
+                esCompra ? "Forma de pago" : "Forma de cobro",
+                "Define cómo se distribuirá el total de la operación."
+        );
+
+        JPanel camposPago = new JPanel(new GridBagLayout());
+        camposPago.setOpaque(false);
+
+        GridBagConstraints gg = new GridBagConstraints();
+        gg.fill = GridBagConstraints.HORIZONTAL;
+        gg.anchor = GridBagConstraints.WEST;
+        gg.insets = new Insets(6, 0, 6, 12);
+        gg.weightx = 1;
+
+        int filaPago = 0;
+        agregarCampoKardex(camposPago, gg, filaPago++, "Forma de pago/cobro", cmbFormaPago);
+        agregarCampoKardex(
+                camposPago,
+                gg,
+                filaPago++,
+                esCompra ? "Cuenta por pagar" : "Cuenta por cobrar",
                 cmbCuentaCredito
         );
-
-        agregarCampo(
-                formulario,
-                gbc,
-                fila++,
-                esCompra
-                        ? "Medio del pago inmediato (solo mixto)"
-                        : "Medio del cobro inmediato (solo mixto)",
+        agregarCampoKardex(
+                camposPago,
+                gg,
+                filaPago++,
+                esCompra ? "Medio del pago inmediato" : "Medio del cobro inmediato",
                 cmbMedioInmediato
         );
-
-        agregarCampo(
-                formulario,
-                gbc,
-                fila++,
-                esCompra
-                        ? "% pagado inmediatamente (solo mixto)"
-                        : "% cobrado inmediatamente (solo mixto)",
+        agregarCampoKardex(
+                camposPago,
+                gg,
+                filaPago++,
+                esCompra ? "% pagado inmediatamente" : "% cobrado inmediatamente",
                 txtPorcentajeInmediato
         );
 
-        agregarCampo(
-                formulario,
-                gbc,
-                fila++,
-                "Distribución",
-                lblDistribucion
-        );
+        tarjetaPago.add(camposPago, BorderLayout.CENTER);
 
-        gbc.gridx = 0;
-        gbc.gridy = fila;
-        gbc.gridwidth = 2;
-        formulario.add(lblReferencia, gbc);
+        JPanel panelDistribucion = new JPanel(new BorderLayout(10, 0));
+        panelDistribucion.setBackground(new Color(248, 250, 252));
+        panelDistribucion.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(11, 13, 11, 13)
+        ));
 
-        int opcion = JOptionPane.showConfirmDialog(
+        JLabel lblTituloDistribucion = new JLabel("Distribución");
+        lblTituloDistribucion.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTituloDistribucion.setForeground(COLOR_TEXTO);
+
+        lblDistribucion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblDistribucion.setForeground(COLOR_SECUNDARIO);
+
+        panelDistribucion.add(lblTituloDistribucion, BorderLayout.WEST);
+        panelDistribucion.add(lblDistribucion, BorderLayout.CENTER);
+
+        JPanel cuerpoDialogo = new JPanel();
+        cuerpoDialogo.setBackground(COLOR_FONDO);
+        cuerpoDialogo.setLayout(new BoxLayout(cuerpoDialogo, BoxLayout.Y_AXIS));
+        cuerpoDialogo.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
+
+        tarjetaProducto.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tarjetaCalculo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tarjetaPago.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panelDistribucion.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        cuerpoDialogo.add(tarjetaProducto);
+        cuerpoDialogo.add(Box.createVerticalStrut(12));
+        cuerpoDialogo.add(tarjetaCalculo);
+        cuerpoDialogo.add(Box.createVerticalStrut(12));
+        cuerpoDialogo.add(tarjetaPago);
+        cuerpoDialogo.add(Box.createVerticalStrut(12));
+        cuerpoDialogo.add(panelDistribucion);
+
+        JScrollPane scrollDialogo = new JScrollPane(cuerpoDialogo);
+        scrollDialogo.setBorder(null);
+        scrollDialogo.getViewport().setBackground(COLOR_FONDO);
+        scrollDialogo.getVerticalScrollBar().setUnitIncrement(16);
+        scrollDialogo.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        JDialog dialogoDatos = new JDialog(
                 this,
-                formulario,
                 "Datos para Kardex PEPS",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
+                ModalityType.APPLICATION_MODAL
         );
+        dialogoDatos.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialogoDatos.setLayout(new BorderLayout());
+        dialogoDatos.getContentPane().setBackground(COLOR_FONDO);
 
-        if (opcion != JOptionPane.OK_OPTION) {
+        JPanel encabezadoDialogo = new JPanel(new BorderLayout(14, 0));
+        encabezadoDialogo.setBackground(Color.WHITE);
+        encabezadoDialogo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE),
+                BorderFactory.createEmptyBorder(17, 22, 17, 22)
+        ));
+
+        JLabel iconoDialogo = new JLabel("▦", JLabel.CENTER);
+        iconoDialogo.setOpaque(true);
+        iconoDialogo.setBackground(new Color(219, 234, 254));
+        iconoDialogo.setForeground(COLOR_PRIMARIO);
+        iconoDialogo.setFont(new Font("Segoe UI Symbol", Font.BOLD, 21));
+        iconoDialogo.setPreferredSize(new Dimension(48, 48));
+
+        JPanel textosDialogo = new JPanel();
+        textosDialogo.setOpaque(false);
+        textosDialogo.setLayout(new BoxLayout(textosDialogo, BoxLayout.Y_AXIS));
+
+        JLabel tituloDialogo = new JLabel(
+                esCompra ? "Datos de compra para Kardex PEPS" : "Datos de venta para Kardex PEPS"
+        );
+        tituloDialogo.setFont(new Font("Segoe UI", Font.BOLD, 21));
+        tituloDialogo.setForeground(COLOR_TEXTO);
+
+        JLabel subtituloDialogo = new JLabel(
+                "Completa los datos que actualizarán inventario, IVA y distribución del pago."
+        );
+        subtituloDialogo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        subtituloDialogo.setForeground(COLOR_SECUNDARIO);
+
+        textosDialogo.add(tituloDialogo);
+        textosDialogo.add(Box.createVerticalStrut(4));
+        textosDialogo.add(subtituloDialogo);
+
+        JLabel distintivo = new JLabel(esCompra ? "COMPRA" : "VENTA");
+        distintivo.setOpaque(true);
+        distintivo.setBackground(esCompra ? new Color(220, 252, 231) : new Color(239, 246, 255));
+        distintivo.setForeground(esCompra ? COLOR_EXITO : COLOR_PRIMARIO);
+        distintivo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        distintivo.setBorder(BorderFactory.createEmptyBorder(7, 11, 7, 11));
+
+        encabezadoDialogo.add(iconoDialogo, BorderLayout.WEST);
+        encabezadoDialogo.add(textosDialogo, BorderLayout.CENTER);
+        encabezadoDialogo.add(distintivo, BorderLayout.EAST);
+
+        final boolean[] aceptado = {false};
+
+        JPanel pieDialogo = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12));
+        pieDialogo.setBackground(Color.WHITE);
+        pieDialogo.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE));
+
+        JButton btnCancelarDatos = new JButton("Cancelar");
+        configurarBotonSecundario(btnCancelarDatos);
+        btnCancelarDatos.addActionListener(e -> dialogoDatos.dispose());
+
+        JButton btnAceptarDatos = new JButton("Aceptar y preparar");
+        configurarBotonPrincipal(btnAceptarDatos);
+        btnAceptarDatos.addActionListener(e -> {
+            aceptado[0] = true;
+            dialogoDatos.dispose();
+        });
+
+        pieDialogo.add(btnCancelarDatos);
+        pieDialogo.add(btnAceptarDatos);
+
+        dialogoDatos.add(encabezadoDialogo, BorderLayout.NORTH);
+        dialogoDatos.add(scrollDialogo, BorderLayout.CENTER);
+        dialogoDatos.add(pieDialogo, BorderLayout.SOUTH);
+
+        Rectangle areaDialogo = GraphicsEnvironment
+                .getLocalGraphicsEnvironment()
+                .getMaximumWindowBounds();
+
+        int anchoDialogo = Math.min(940, Math.max(780, (int) (areaDialogo.width * 0.66)));
+        int altoDialogo = Math.min(800, Math.max(650, (int) (areaDialogo.height * 0.82)));
+
+        dialogoDatos.setSize(anchoDialogo, altoDialogo);
+        dialogoDatos.setMinimumSize(new Dimension(760, 620));
+        dialogoDatos.setResizable(true);
+        dialogoDatos.setLocationRelativeTo(this);
+        dialogoDatos.getRootPane().setDefaultButton(btnAceptarDatos);
+        dialogoDatos.setVisible(true);
+
+        if (!aceptado[0]) {
             return false;
         }
 
@@ -1273,6 +1589,90 @@ public class DialogoAsientoManual extends JDialog {
         }
     }
 
+    private JPanel crearTarjetaKardex(
+            String titulo,
+            String subtitulo
+    ) {
+        JPanel tarjeta = new JPanel(new BorderLayout(0, 12));
+        tarjeta.setBackground(Color.WHITE);
+        tarjeta.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(COLOR_BORDE),
+                BorderFactory.createEmptyBorder(15, 17, 15, 17)
+        ));
+
+        JPanel cabecera = new JPanel();
+        cabecera.setOpaque(false);
+        cabecera.setLayout(new BoxLayout(cabecera, BoxLayout.Y_AXIS));
+
+        JLabel lblTitulo = new JLabel(titulo);
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblTitulo.setForeground(COLOR_TEXTO);
+
+        JLabel lblSubtitulo = new JLabel(subtitulo);
+        lblSubtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblSubtitulo.setForeground(COLOR_SECUNDARIO);
+
+        cabecera.add(lblTitulo);
+        cabecera.add(Box.createVerticalStrut(3));
+        cabecera.add(lblSubtitulo);
+
+        tarjeta.add(cabecera, BorderLayout.NORTH);
+        return tarjeta;
+    }
+
+    private void agregarCampoKardex(
+            JPanel panel,
+            GridBagConstraints base,
+            int fila,
+            String etiqueta,
+            Component componente
+    ) {
+        GridBagConstraints gLabel = (GridBagConstraints) base.clone();
+        gLabel.gridx = 0;
+        gLabel.gridy = fila;
+        gLabel.weightx = 0;
+        gLabel.fill = GridBagConstraints.NONE;
+        gLabel.anchor = GridBagConstraints.WEST;
+        gLabel.insets = new Insets(6, 0, 6, 18);
+
+        JLabel label = new JLabel(etiqueta);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        label.setForeground(COLOR_TEXTO);
+        panel.add(label, gLabel);
+
+        GridBagConstraints gCampo = (GridBagConstraints) base.clone();
+        gCampo.gridx = 1;
+        gCampo.gridy = fila;
+        gCampo.weightx = 1;
+        gCampo.fill = GridBagConstraints.HORIZONTAL;
+        gCampo.insets = new Insets(6, 0, 6, 0);
+
+        if (componente instanceof JComponent jc) {
+            jc.setPreferredSize(new Dimension(420, 38));
+            jc.setMinimumSize(new Dimension(220, 38));
+        }
+
+        panel.add(componente, gCampo);
+    }
+
+    private void configurarCampoKardex(JTextField campo) {
+        campo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        campo.setBackground(Color.WHITE);
+        campo.setForeground(COLOR_TEXTO);
+        campo.setPreferredSize(new Dimension(420, 38));
+        campo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(203, 213, 225)),
+                BorderFactory.createEmptyBorder(7, 10, 7, 10)
+        ));
+    }
+
+    private void configurarComboKardex(JComboBox<?> combo) {
+        combo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        combo.setBackground(Color.WHITE);
+        combo.setForeground(COLOR_TEXTO);
+        combo.setPreferredSize(new Dimension(420, 38));
+    }
+
     private void agregarCampo(
             JPanel panel,
             GridBagConstraints gbc,
@@ -1351,22 +1751,34 @@ public class DialogoAsientoManual extends JDialog {
     }
 
     private JPanel crearPanelTs() {
-        JPanel cont = new JPanel();
+        JPanel cont = new JPanel(new BorderLayout(0, 10));
         cont.setBackground(Color.WHITE);
-        cont.setLayout(new javax.swing.BoxLayout(cont, javax.swing.BoxLayout.Y_AXIS));
         cont.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(COLOR_BORDE),
                 BorderFactory.createEmptyBorder(12, 14, 12, 14)
         ));
+
+        JPanel encabezado = new JPanel(new BorderLayout());
+        encabezado.setOpaque(false);
+
         JLabel t = new JLabel("Vista previa de cuentas T");
-        t.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        t.setFont(new Font("Segoe UI", Font.BOLD, 16));
         t.setForeground(COLOR_TEXTO);
-        cont.add(t);
-        cont.add(javax.swing.Box.createVerticalStrut(8));
-        JPanel grilla = new JPanel(new java.awt.GridLayout(0, 3, 12, 12));
+
+        JLabel ayuda = new JLabel("Se actualiza automáticamente con las líneas del asiento");
+        ayuda.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        ayuda.setForeground(COLOR_SECUNDARIO);
+
+        encabezado.add(t, BorderLayout.WEST);
+        encabezado.add(ayuda, BorderLayout.EAST);
+
+        JPanel grilla = new JPanel(new GridLayout(0, 3, 12, 12));
         grilla.setOpaque(false);
         grilla.setName("GRILLA_TS");
-        cont.add(grilla);
+
+        cont.add(encabezado, BorderLayout.NORTH);
+        cont.add(grilla, BorderLayout.CENTER);
+
         actualizarTs(cont);
         return cont;
     }
@@ -1397,10 +1809,10 @@ public class DialogoAsientoManual extends JDialog {
                 } catch (Exception ex) {
                     debe = BigDecimal.ZERO; haber = BigDecimal.ZERO;
                 }
-                JPanel t = new JPanel(new BorderLayout());
-                t.setBackground(new Color(248,250,252));
+                JPanel t = new JPanel(new BorderLayout(0, 7));
+                t.setBackground(new Color(248, 250, 252));
                 t.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(COLOR_BORDE),
+                        BorderFactory.createMatteBorder(3, 1, 1, 1, COLOR_PRIMARIO),
                         BorderFactory.createEmptyBorder(8, 10, 8, 10)));
                 JLabel nom = new JLabel("<html><b>" + cuenta.getCodigo() + " - " + cuenta.getNombre() + "</b></html>");
                 nom.setHorizontalAlignment(JLabel.CENTER);
@@ -1418,11 +1830,11 @@ public class DialogoAsientoManual extends JDialog {
     }
 
     private JPanel crearResumen() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 30, 12));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 24, 11));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(COLOR_BORDE),
-                BorderFactory.createEmptyBorder(5, 15, 5, 15)
+                BorderFactory.createEmptyBorder(4, 16, 4, 16)
         ));
 
         lblTotalDebe = crearValorResumen("Total Debe: $0.00");
@@ -1431,10 +1843,19 @@ public class DialogoAsientoManual extends JDialog {
         lblDiferencia.setForeground(COLOR_EXITO);
 
         panel.add(lblTotalDebe);
+        panel.add(crearSeparadorResumen());
         panel.add(lblTotalHaber);
+        panel.add(crearSeparadorResumen());
         panel.add(lblDiferencia);
 
         return panel;
+    }
+
+    private JComponent crearSeparadorResumen() {
+        JPanel separador = new JPanel();
+        separador.setBackground(COLOR_BORDE);
+        separador.setPreferredSize(new Dimension(1, 22));
+        return separador;
     }
 
     private void actualizarTotales() {
@@ -1470,11 +1891,21 @@ public class DialogoAsientoManual extends JDialog {
     }
 
     private JPanel crearBotonesFinales() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 16));
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createMatteBorder(
-                1, 0, 0, 0, COLOR_BORDE
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE),
+                BorderFactory.createEmptyBorder(12, 28, 12, 28)
         ));
+
+        JLabel indicacion = new JLabel(
+                "Revisa que el Debe y el Haber estén cuadrados antes de registrar."
+        );
+        indicacion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        indicacion.setForeground(COLOR_SECUNDARIO);
+
+        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        acciones.setOpaque(false);
 
         JButton btnCancelar = new JButton("Cancelar");
         configurarBotonSecundario(btnCancelar);
@@ -1484,8 +1915,11 @@ public class DialogoAsientoManual extends JDialog {
         configurarBotonPrincipal(btnGuardar);
         btnGuardar.addActionListener(e -> guardar());
 
-        panel.add(btnCancelar);
-        panel.add(btnGuardar);
+        acciones.add(btnCancelar);
+        acciones.add(btnGuardar);
+
+        panel.add(indicacion, BorderLayout.WEST);
+        panel.add(acciones, BorderLayout.EAST);
 
         return panel;
     }
@@ -1715,7 +2149,7 @@ public class DialogoAsientoManual extends JDialog {
         boton.setFont(new Font("Segoe UI", Font.BOLD, 12));
         boton.setForeground(Color.WHITE);
         boton.setBackground(COLOR_PRIMARIO);
-        boton.setBorder(BorderFactory.createEmptyBorder(9, 14, 9, 14));
+        boton.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
         boton.setFocusPainted(false);
         boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
@@ -1726,7 +2160,7 @@ public class DialogoAsientoManual extends JDialog {
         boton.setBackground(new Color(241, 245, 249));
         boton.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(COLOR_BORDE),
-                BorderFactory.createEmptyBorder(8, 14, 8, 14)
+                BorderFactory.createEmptyBorder(9, 16, 9, 16)
         ));
         boton.setFocusPainted(false);
         boton.setCursor(new Cursor(Cursor.HAND_CURSOR));

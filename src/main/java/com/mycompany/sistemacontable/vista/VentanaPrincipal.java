@@ -3,6 +3,7 @@ package com.mycompany.sistemacontable.vista;
 import com.mycompany.sistemacontable.modelo.Usuario;
 import com.mycompany.sistemacontable.servicio.SesionUsuario;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -10,7 +11,14 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,6 +28,8 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -32,10 +42,10 @@ public class VentanaPrincipal extends JFrame {
             new Color(245, 247, 250);
 
     private final Color COLOR_MENU =
-            new Color(18, 32, 52);
+            new Color(19, 65, 125);
 
     private final Color COLOR_MENU_HOVER =
-            new Color(31, 49, 73);
+            new Color(31, 86, 157);
 
     private final Color COLOR_ACTIVO =
             new Color(37, 99, 235);
@@ -115,6 +125,9 @@ public class VentanaPrincipal extends JFrame {
                 null
         );
 
+        // Abrir ContaProMax maximizado automáticamente después del inicio de sesión.
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+
         setLayout(
                 new BorderLayout()
         );
@@ -123,8 +136,96 @@ public class VentanaPrincipal extends JFrame {
                 COLOR_FONDO
         );
 
-        if (MarcaUI.iconoVentana() != null) {
-            setIconImage(MarcaUI.iconoVentana());
+        // Icono oficial de ContaProMax para ventana, barra de tareas y dock.
+        aplicarIconoAplicacion();
+    }
+
+    private void aplicarIconoAplicacion() {
+
+        URL recursoIcono =
+                getClass().getResource(
+                        "/branding/ContaProMaxIcon.png"
+                );
+
+        if (recursoIcono == null) {
+
+            if (MarcaUI.iconoVentana() != null) {
+                setIconImage(
+                        MarcaUI.iconoVentana()
+                );
+            }
+
+            return;
+        }
+
+        Image imagenBase =
+                new ImageIcon(
+                        recursoIcono
+                ).getImage();
+
+        // Varias resoluciones ayudan a que Windows/Linux elijan
+        // la más adecuada para título, barra de tareas y selector de ventanas.
+        java.util.List<Image> iconos =
+                new java.util.ArrayList<>();
+
+        int[] tamanos = {
+            16,
+            20,
+            24,
+            32,
+            40,
+            48,
+            64,
+            128,
+            256
+        };
+
+        for (
+                int tamano
+                : tamanos
+        ) {
+
+            iconos.add(
+                    imagenBase.getScaledInstance(
+                            tamano,
+                            tamano,
+                            Image.SCALE_SMOOTH
+                    )
+            );
+        }
+
+        setIconImages(
+                iconos
+        );
+
+        // En escritorios que permiten cambiar específicamente
+        // el icono del dock/barra de tareas, también lo establecemos aquí.
+        try {
+
+            if (
+                    java.awt.Taskbar.isTaskbarSupported()
+            ) {
+
+                java.awt.Taskbar barra =
+                        java.awt.Taskbar.getTaskbar();
+
+                if (
+                        barra.isSupported(
+                                java.awt.Taskbar.Feature.ICON_IMAGE
+                        )
+                ) {
+
+                    barra.setIconImage(
+                            imagenBase
+                    );
+                }
+            }
+
+        } catch (
+                UnsupportedOperationException
+                | SecurityException ignored
+        ) {
+            // Algunos entornos de escritorio no permiten modificarlo en ejecución.
         }
     }
 
@@ -143,224 +244,148 @@ public class VentanaPrincipal extends JFrame {
 
     private JPanel crearMenuLateral() {
 
-        JPanel panel =
-                new JPanel();
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
 
-        panel.setBackground(
-                COLOR_MENU
-        );
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-        panel.setPreferredSize(
-                new Dimension(
-                        255,
-                        0
-                )
-        );
-
-        panel.setLayout(
-                new BoxLayout(
-                        panel,
-                        BoxLayout.Y_AXIS
-                )
-        );
-
-        panel.setBorder(
-                BorderFactory.createEmptyBorder(
-                        25,
-                        18,
-                        25,
-                        18
-                )
-        );
-
-        JLabel logo = new JLabel("ContaProMax", MarcaUI.logo(58, 58), JLabel.LEFT);
-        logo.setIconTextGap(10);
-
-        logo.setForeground(
-                Color.WHITE
-        );
-
-        logo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        20
-                )
-        );
-
-        logo.setAlignmentX(
-                Component.LEFT_ALIGNMENT
-        );
-
-        JLabel subtitulo =
-                new JLabel(
-                        MarcaUI.LEMA
+                GradientPaint degradado = new GradientPaint(
+                        0, 0, new Color(20, 91, 173),
+                        0, getHeight(), new Color(8, 43, 96)
                 );
 
-        subtitulo.setForeground(
-                new Color(
-                        160,
-                        174,
-                        192
-                )
-        );
+                g2.setPaint(degradado);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
+            }
+        };
 
-        subtitulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        12
-                )
-        );
+        panel.setPreferredSize(new Dimension(270, 0));
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(22, 16, 18, 16));
+        panel.setOpaque(false);
 
-        subtitulo.setAlignmentX(
-                Component.LEFT_ALIGNMENT
-        );
+        JPanel cabecera = new JPanel();
+        cabecera.setLayout(new BoxLayout(cabecera, BoxLayout.X_AXIS));
+        cabecera.setOpaque(false);
+        cabecera.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cabecera.setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
 
-        panel.add(
-                logo
-        );
+        JLabel logoImagen = new JLabel(cargarLogoSistema(54, 54));
+        logoImagen.setPreferredSize(new Dimension(54, 54));
+        logoImagen.setMinimumSize(new Dimension(54, 54));
+        logoImagen.setMaximumSize(new Dimension(54, 54));
 
-        panel.add(
-                Box.createVerticalStrut(
-                        3
-                )
-        );
+        JPanel textosLogo = new JPanel();
+        textosLogo.setLayout(new BoxLayout(textosLogo, BoxLayout.Y_AXIS));
+        textosLogo.setOpaque(false);
 
-        panel.add(
-                subtitulo
-        );
+        JLabel nombreSistema = new JLabel("ContaProMax");
+        nombreSistema.setForeground(Color.WHITE);
+        nombreSistema.setFont(new Font("Segoe UI", Font.BOLD, 21));
+        nombreSistema.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(
-                Box.createVerticalStrut(
-                        32
-                )
-        );
+        JLabel subtitulo = new JLabel(MarcaUI.LEMA);
+        subtitulo.setForeground(new Color(205, 220, 240));
+        subtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        subtitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        agregarBotonMenu(
-                panel,
-                "DASHBOARD",
-                "Dashboard"
-        );
+        textosLogo.add(Box.createVerticalGlue());
+        textosLogo.add(nombreSistema);
+        textosLogo.add(Box.createVerticalStrut(2));
+        textosLogo.add(subtitulo);
+        textosLogo.add(Box.createVerticalGlue());
+
+        cabecera.add(logoImagen);
+        cabecera.add(Box.createHorizontalStrut(10));
+        cabecera.add(textosLogo);
+
+        panel.add(cabecera);
+        panel.add(Box.createVerticalStrut(18));
+
+        JPanel separador = new JPanel();
+        separador.setBackground(new Color(255, 255, 255, 45));
+        separador.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        separador.setPreferredSize(new Dimension(0, 1));
+        separador.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        panel.add(separador);
+        panel.add(Box.createVerticalStrut(14));
+
+        agregarBotonMenu(panel, "DASHBOARD", "Dashboard");
 
         if (SesionUsuario.puedeRegistrarOperaciones()) {
-            agregarBotonMenu(
-                    panel,
-                    "OPERACIONES",
-                    "Operaciones"
-            );
+            agregarBotonMenu(panel, "OPERACIONES", "Operaciones");
         }
 
-        agregarBotonMenu(
-                panel,
-                "LIBRO_DIARIO",
-                "Libro Diario"
-        );
-
-        agregarBotonMenu(
-                panel,
-                "MAYORIZACION",
-                "Mayorización"
-        );
-
-        agregarBotonMenu(
-                panel,
-                "BALANCE_COMPROBACION",
-                "Balance de Comprobación"
-        );
-
-        agregarBotonMenu(
-                panel,
-                "ESTADO_RESULTADOS",
-                "Estado de Resultados"
-        );
-
-        agregarBotonMenu(
-                panel,
-                "BALANCE_GENERAL",
-                "Balance General"
-        );
-
-        agregarBotonMenu(
-                panel,
-                "KARDEX",
-                "Kardex PEPS"
-        );
-
+        agregarBotonMenu(panel, "LIBRO_DIARIO", "Libro Diario");
+        agregarBotonMenu(panel, "MAYORIZACION", "Mayorización");
+        agregarBotonMenu(panel, "BALANCE_COMPROBACION", "Balance de Comprobación");
+        agregarBotonMenu(panel, "ESTADO_RESULTADOS", "Estado de Resultados");
+        agregarBotonMenu(panel, "BALANCE_GENERAL", "Balance General");
+        agregarBotonMenu(panel, "KARDEX", "Kardex PEPS");
         agregarBotonMenu(panel, "REPORTES", "Generador de Reportes");
 
         if (SesionUsuario.esAdministrador()) {
             agregarBotonMenu(panel, "PERIODOS", "Períodos Contables");
             agregarBotonMenu(panel, "AUDITORIA", "Bitácora de Auditoría");
+            agregarBotonMenu(panel, "CATALOGO", "Catálogo de Cuentas");
+            agregarBotonMenu(panel, "CONFIGURACION", "Configuración");
+            agregarBotonMenu(panel, "USUARIOS", "Usuarios y Roles");
         }
 
-        if (SesionUsuario.esAdministrador()) {
-            agregarBotonMenu(
-                    panel,
-                    "CATALOGO",
-                    "Catálogo de Cuentas"
-            );
+        panel.add(Box.createVerticalGlue());
 
-            agregarBotonMenu(
-                    panel,
-                    "CONFIGURACION",
-                    "Configuración"
-            );
+        JPanel tarjetaUsuario = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(255, 255, 255, 24));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
 
-            agregarBotonMenu(
-                    panel,
-                    "USUARIOS",
-                    "Usuarios y Roles"
-            );
-        }
+        tarjetaUsuario.setOpaque(false);
+        tarjetaUsuario.setLayout(new BorderLayout(10, 0));
+        tarjetaUsuario.setBorder(BorderFactory.createEmptyBorder(10, 11, 10, 11));
+        tarjetaUsuario.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
+        tarjetaUsuario.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        panel.add(
-                Box.createVerticalGlue()
-        );
+        JLabel iconoUsuario = new JLabel(crearIconoMenu("USUARIOS"));
+        iconoUsuario.setHorizontalAlignment(SwingConstants.CENTER);
+        iconoUsuario.setPreferredSize(new Dimension(28, 28));
 
         JLabel sesion = new JLabel(
-                "<html><b>" + usuarioActual.getNombreCompleto() + "</b><br>"
-                + usuarioActual.getRolNombre() + "</html>"
+                "<html>"
+                + "<span style='color:white'><b>" + usuarioActual.getNombreCompleto() + "</b></span>"
+                + "<br>"
+                + "<span style='color:#C7D7EA'>" + usuarioActual.getRolNombre() + "</span>"
+                + "</html>"
         );
-        sesion.setForeground(new Color(190, 200, 214));
         sesion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        sesion.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(sesion);
-        panel.add(Box.createVerticalStrut(10));
 
-        JButton cerrarSesion = crearBotonMenu("Cerrar sesión");
+        tarjetaUsuario.add(iconoUsuario, BorderLayout.WEST);
+        tarjetaUsuario.add(sesion, BorderLayout.CENTER);
+
+        panel.add(tarjetaUsuario);
+        panel.add(Box.createVerticalStrut(8));
+
+        JButton cerrarSesion = crearBotonMenu("Cerrar sesión", "SALIR");
         cerrarSesion.addActionListener(e -> cerrarSesion());
         panel.add(cerrarSesion);
-        panel.add(Box.createVerticalStrut(14));
+        panel.add(Box.createVerticalStrut(7));
 
-        JLabel version =
-                new JLabel(
-                        "ContaProMax v2.4-PERIODOS-CERO"
-                );
-
-        version.setForeground(
-                new Color(
-                        120,
-                        135,
-                        155
-                )
-        );
-
-        version.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        11
-                )
-        );
-
-        version.setAlignmentX(
-                Component.LEFT_ALIGNMENT
-        );
-
-        panel.add(
-                version
-        );
+        JLabel version = new JLabel("ContaProMax v2.4-PERIODOS-CERO");
+        version.setForeground(new Color(163, 190, 220));
+        version.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        version.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(version);
 
         return panel;
     }
@@ -371,149 +396,259 @@ public class VentanaPrincipal extends JFrame {
             String texto
     ) {
 
-        JButton boton =
-                crearBotonMenu(
-                        texto
-                );
+        JButton boton = crearBotonMenu(texto, clave);
 
         boton.addActionListener(
-                e -> mostrarPanel(
-                        clave
-                )
+                e -> mostrarPanel(clave)
         );
 
-        botonesMenu.put(
-                clave,
-                boton
-        );
+        botonesMenu.put(clave, boton);
 
-        panel.add(
-                boton
-        );
-
-        panel.add(
-                Box.createVerticalStrut(
-                        7
-                )
-        );
+        panel.add(boton);
+        panel.add(Box.createVerticalStrut(4));
     }
 
     private JButton crearBotonMenu(
-            String texto
+            String texto,
+            String clave
     ) {
 
-        JButton boton =
-                new JButton(
-                        texto
-                );
+        JButton boton = new JButton(texto) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        boton.setUI(
-                new BasicButtonUI()
-        );
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
 
-        boton.setMaximumSize(
-                new Dimension(
-                        Integer.MAX_VALUE,
-                        46
-                )
-        );
+                if (getBackground().equals(COLOR_ACTIVO)) {
+                    g2.setColor(Color.WHITE);
+                    g2.fillRoundRect(3, 9, 4, getHeight() - 18, 4, 4);
+                }
 
-        boton.setPreferredSize(
-                new Dimension(
-                        210,
-                        46
-                )
-        );
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
 
-        boton.setHorizontalAlignment(
-                SwingConstants.LEFT
-        );
-
-        boton.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        14
-                )
-        );
-
-        boton.setForeground(
-                new Color(
-                        220,
-                        226,
-                        235
-                )
-        );
-
-        boton.setBackground(
-                COLOR_MENU
-        );
-
-        boton.setBorder(
-                BorderFactory.createEmptyBorder(
-                        0,
-                        15,
-                        0,
-                        10
-                )
-        );
-
-        boton.setFocusPainted(
-                false
-        );
-
-        boton.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
-        );
-
-        boton.setOpaque(
-                true
-        );
-
-        boton.setContentAreaFilled(
-                true
-        );
+        boton.setUI(new BasicButtonUI());
+        boton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        boton.setPreferredSize(new Dimension(230, 40));
+        boton.setMinimumSize(new Dimension(210, 40));
+        boton.setHorizontalAlignment(SwingConstants.LEFT);
+        boton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        boton.setForeground(new Color(235, 242, 252));
+        boton.setBackground(COLOR_MENU);
+        boton.setIcon(crearIconoMenu(clave));
+        boton.setIconTextGap(13);
+        boton.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 10));
+        boton.setFocusPainted(false);
+        boton.setBorderPainted(false);
+        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        boton.setOpaque(false);
+        boton.setContentAreaFilled(false);
 
         boton.addMouseListener(
                 new java.awt.event.MouseAdapter() {
-
                     @Override
-                    public void mouseEntered(
-                            java.awt.event.MouseEvent evt
-                    ) {
-
-                        if (!boton.getBackground()
-                                .equals(
-                                        COLOR_ACTIVO
-                                )) {
-
-                            boton.setBackground(
-                                    COLOR_MENU_HOVER
-                            );
+                    public void mouseEntered(java.awt.event.MouseEvent evt) {
+                        if (!boton.getBackground().equals(COLOR_ACTIVO)) {
+                            boton.setBackground(COLOR_MENU_HOVER);
+                            boton.repaint();
                         }
                     }
 
                     @Override
-                    public void mouseExited(
-                            java.awt.event.MouseEvent evt
-                    ) {
-
-                        if (!boton.getBackground()
-                                .equals(
-                                        COLOR_ACTIVO
-                                )) {
-
-                            boton.setBackground(
-                                    COLOR_MENU
-                            );
+                    public void mouseExited(java.awt.event.MouseEvent evt) {
+                        if (!boton.getBackground().equals(COLOR_ACTIVO)) {
+                            boton.setBackground(COLOR_MENU);
+                            boton.repaint();
                         }
                     }
                 }
         );
 
         return boton;
+    }
+
+    private Icon crearIconoMenu(String clave) {
+
+        int tamano = 20;
+        BufferedImage imagen = new BufferedImage(tamano, tamano, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = imagen.createGraphics();
+
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(
+                1.8f,
+                BasicStroke.CAP_ROUND,
+                BasicStroke.JOIN_ROUND
+        ));
+
+        switch (clave) {
+            case "DASHBOARD":
+                g2.fillRoundRect(2, 2, 7, 7, 2, 2);
+                g2.fillRoundRect(11, 2, 7, 7, 2, 2);
+                g2.fillRoundRect(2, 11, 7, 7, 2, 2);
+                g2.fillRoundRect(11, 11, 7, 7, 2, 2);
+                break;
+
+            case "OPERACIONES":
+                g2.drawRoundRect(3, 2, 14, 16, 2, 2);
+                g2.drawLine(6, 7, 14, 7);
+                g2.drawLine(6, 11, 14, 11);
+                g2.drawLine(6, 15, 11, 15);
+                break;
+
+            case "LIBRO_DIARIO":
+                g2.drawRoundRect(3, 2, 14, 16, 2, 2);
+                g2.drawLine(7, 2, 7, 18);
+                g2.drawLine(10, 7, 14, 7);
+                g2.drawLine(10, 11, 14, 11);
+                break;
+
+            case "MAYORIZACION":
+                g2.drawLine(3, 5, 17, 5);
+                g2.drawLine(10, 5, 10, 17);
+                g2.drawLine(4, 9, 8, 9);
+                g2.drawLine(12, 9, 16, 9);
+                g2.drawLine(4, 13, 8, 13);
+                g2.drawLine(12, 13, 16, 13);
+                break;
+
+            case "BALANCE_COMPROBACION":
+                g2.drawLine(10, 3, 10, 16);
+                g2.drawLine(4, 6, 16, 6);
+                g2.drawLine(6, 6, 3, 12);
+                g2.drawLine(14, 6, 17, 12);
+                g2.drawArc(1, 10, 6, 5, 180, 180);
+                g2.drawArc(13, 10, 6, 5, 180, 180);
+                g2.drawLine(6, 17, 14, 17);
+                break;
+
+            case "ESTADO_RESULTADOS":
+                g2.drawLine(3, 17, 3, 3);
+                g2.drawLine(3, 17, 17, 17);
+                g2.drawLine(5, 14, 9, 10);
+                g2.drawLine(9, 10, 12, 12);
+                g2.drawLine(12, 12, 17, 5);
+                g2.drawLine(14, 5, 17, 5);
+                g2.drawLine(17, 5, 17, 8);
+                break;
+
+            case "BALANCE_GENERAL":
+                g2.drawLine(2, 7, 10, 2);
+                g2.drawLine(10, 2, 18, 7);
+                g2.drawLine(3, 7, 17, 7);
+                g2.drawLine(5, 8, 5, 16);
+                g2.drawLine(10, 8, 10, 16);
+                g2.drawLine(15, 8, 15, 16);
+                g2.drawLine(3, 17, 17, 17);
+                break;
+
+            case "KARDEX":
+                g2.drawRect(3, 4, 14, 13);
+                g2.drawLine(3, 8, 17, 8);
+                g2.drawLine(8, 4, 8, 17);
+                g2.drawLine(12, 4, 12, 17);
+                g2.drawLine(3, 12, 17, 12);
+                break;
+
+            case "REPORTES":
+                g2.drawRoundRect(3, 2, 14, 16, 2, 2);
+                g2.fillRect(6, 11, 2, 4);
+                g2.fillRect(9, 8, 2, 7);
+                g2.fillRect(12, 5, 2, 10);
+                break;
+
+            case "PERIODOS":
+                g2.drawRoundRect(2, 4, 16, 14, 2, 2);
+                g2.drawLine(2, 8, 18, 8);
+                g2.drawLine(6, 2, 6, 6);
+                g2.drawLine(14, 2, 14, 6);
+                g2.fillOval(6, 11, 2, 2);
+                g2.fillOval(10, 11, 2, 2);
+                g2.fillOval(14, 11, 2, 2);
+                break;
+
+            case "AUDITORIA":
+                g2.drawOval(3, 3, 10, 10);
+                g2.drawLine(11, 11, 17, 17);
+                g2.drawLine(6, 7, 10, 7);
+                g2.drawLine(6, 10, 9, 10);
+                break;
+
+            case "CATALOGO":
+                g2.fillOval(3, 4, 2, 2);
+                g2.fillOval(3, 9, 2, 2);
+                g2.fillOval(3, 14, 2, 2);
+                g2.drawLine(8, 5, 17, 5);
+                g2.drawLine(8, 10, 17, 10);
+                g2.drawLine(8, 15, 17, 15);
+                break;
+
+            case "CONFIGURACION":
+                g2.drawOval(5, 5, 10, 10);
+                g2.drawOval(8, 8, 4, 4);
+                g2.drawLine(10, 1, 10, 5);
+                g2.drawLine(10, 15, 10, 19);
+                g2.drawLine(1, 10, 5, 10);
+                g2.drawLine(15, 10, 19, 10);
+                g2.drawLine(4, 4, 6, 6);
+                g2.drawLine(14, 14, 16, 16);
+                g2.drawLine(16, 4, 14, 6);
+                g2.drawLine(4, 16, 6, 14);
+                break;
+
+            case "USUARIOS":
+                g2.drawOval(7, 2, 6, 6);
+                g2.drawArc(4, 9, 12, 9, 0, 180);
+                g2.drawOval(2, 5, 4, 4);
+                g2.drawOval(14, 5, 4, 4);
+                break;
+
+            case "SALIR":
+                g2.drawRect(3, 3, 8, 14);
+                g2.drawLine(8, 10, 18, 10);
+                g2.drawLine(15, 7, 18, 10);
+                g2.drawLine(15, 13, 18, 10);
+                break;
+
+            default:
+                g2.fillOval(6, 6, 8, 8);
+                break;
+        }
+
+        g2.dispose();
+        return new ImageIcon(imagen);
+    }
+
+    private Icon cargarLogoSistema(int ancho, int alto) {
+
+        String[] rutas = {
+            "/ContaProMaxLogo.png",
+            "/branding/ContaProMaxLogo.png",
+            "/img/ContaProMaxLogo.png",
+            "/com/mycompany/sistemacontable/imagenes/ContaProMaxLogo.png"
+                
+        };
+
+        for (String ruta : rutas) {
+            URL recurso = getClass().getResource(ruta);
+
+            if (recurso != null) {
+                ImageIcon original = new ImageIcon(recurso);
+                Image escalada = original.getImage().getScaledInstance(
+                        ancho,
+                        alto,
+                        Image.SCALE_SMOOTH
+                );
+                return new ImageIcon(escalada);
+            }
+        }
+
+        return MarcaUI.logo(ancho, alto);
     }
 
     private JPanel crearAreaPrincipal() {

@@ -25,6 +25,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -54,6 +55,9 @@ public class PanelConfiguracion extends JPanel {
     private final Color COLOR_SECUNDARIO = new Color(100, 116, 139);
     private final Color COLOR_BORDE = new Color(226, 232, 240);
     private final Color COLOR_PRIMARIO = new Color(37, 99, 235);
+    private final Color COLOR_PRIMARIO_HOVER = new Color(29, 78, 216);
+    private final Color COLOR_VERDE = new Color(22, 163, 74);
+    private final Color COLOR_CELESTE_SUAVE = new Color(239, 246, 255);
     private final Color COLOR_ROJO = new Color(220, 38, 38);
     private final Color COLOR_ROJO_HOVER = new Color(185, 28, 28);
 
@@ -92,7 +96,6 @@ public class PanelConfiguracion extends JPanel {
 
         JPanel contenido = new JPanel();
         contenido.setOpaque(false);
-
         contenido.setLayout(
                 new BoxLayout(
                         contenido,
@@ -100,67 +103,68 @@ public class PanelConfiguracion extends JPanel {
                 )
         );
 
+        JPanel encabezado = new JPanel(new BorderLayout());
+        encabezado.setOpaque(false);
+        encabezado.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        encabezado.setAlignmentX(LEFT_ALIGNMENT);
+
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+
         JLabel titulo = new JLabel("Configuración");
-
-        titulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        28
-                )
-        );
-
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 28));
         titulo.setForeground(COLOR_TEXTO);
-        titulo.setAlignmentX(LEFT_ALIGNMENT);
 
         JLabel subtitulo = new JLabel(
                 "Administra la información de la empresa y los parámetros contables del sistema."
         );
-
-        subtitulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        14
-                )
-        );
-
+        subtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subtitulo.setForeground(COLOR_SECUNDARIO);
-        subtitulo.setAlignmentX(LEFT_ALIGNMENT);
 
-        contenido.add(titulo);
-        contenido.add(Box.createVerticalStrut(5));
-        contenido.add(subtitulo);
-        contenido.add(Box.createVerticalStrut(20));
+        textos.add(titulo);
+        textos.add(Box.createVerticalStrut(5));
+        textos.add(subtitulo);
 
-        // Zona de pruebas visible al inicio para que el administrador pueda
-        // limpiar movimientos sin buscarla al final del scroll.
-        contenido.add(crearTarjetaReinicio());
-        contenido.add(Box.createVerticalStrut(20));
+        JLabel etiqueta = new JLabel("  CONFIGURACIÓN GENERAL  ");
+        etiqueta.setOpaque(true);
+        etiqueta.setBackground(COLOR_CELESTE_SUAVE);
+        etiqueta.setForeground(COLOR_PRIMARIO);
+        etiqueta.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        etiqueta.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
 
+        encabezado.add(textos, BorderLayout.WEST);
+        encabezado.add(etiqueta, BorderLayout.EAST);
+
+        contenido.add(encabezado);
+        contenido.add(Box.createVerticalStrut(18));
+
+        // Primero se muestran los datos que el administrador consulta y modifica con frecuencia.
         contenido.add(crearTarjetaEmpresa());
-        contenido.add(Box.createVerticalStrut(20));
+        contenido.add(Box.createVerticalStrut(18));
 
         contenido.add(crearTarjetaIva());
+        contenido.add(Box.createVerticalStrut(22));
+
+        JLabel mantenimiento = new JLabel("Herramientas de mantenimiento");
+        mantenimiento.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        mantenimiento.setForeground(COLOR_SECUNDARIO);
+        mantenimiento.setAlignmentX(LEFT_ALIGNMENT);
+        contenido.add(mantenimiento);
+        contenido.add(Box.createVerticalStrut(9));
+
+        // La zona destructiva queda al final para evitar activaciones accidentales.
+        contenido.add(crearTarjetaReinicio());
         contenido.add(Box.createVerticalStrut(25));
 
         JScrollPane scroll = new JScrollPane(contenido);
-
         scroll.setBorder(null);
         scroll.setOpaque(false);
-
         scroll.getViewport().setOpaque(false);
-
-        scroll.setHorizontalScrollBarPolicy(
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
-        );
-
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(18);
 
-        add(
-                scroll,
-                BorderLayout.CENTER
-        );
+        add(scroll, BorderLayout.CENTER);
     }
 
     // =========================================================
@@ -169,70 +173,27 @@ public class PanelConfiguracion extends JPanel {
 
     private JPanel crearTarjetaEmpresa() {
 
-        JPanel tarjeta = new JPanel();
-
+        JPanel tarjeta = new JPanel(new BorderLayout(0, 18));
         tarjeta.setBackground(Color.WHITE);
-
-        tarjeta.setLayout(
-                new BoxLayout(
-                        tarjeta,
-                        BoxLayout.Y_AXIS
-                )
-        );
-
         tarjeta.setBorder(
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(COLOR_BORDE),
-                        BorderFactory.createEmptyBorder(
-                                22,
-                                22,
-                                22,
-                                22
-                        )
+                        BorderFactory.createEmptyBorder(20, 22, 20, 22)
                 )
         );
-
-        tarjeta.setMaximumSize(
-        new Dimension(
-                Integer.MAX_VALUE,
-                500
-        )
-);
-
+        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 430));
         tarjeta.setAlignmentX(LEFT_ALIGNMENT);
 
-        JLabel titulo = new JLabel(
-                "Datos de la Empresa"
+        tarjeta.add(
+                crearEncabezadoTarjeta(
+                        "▣",
+                        "Datos de la Empresa",
+                        "Información general utilizada para identificar la empresa y generar documentos.",
+                        COLOR_CELESTE_SUAVE,
+                        COLOR_PRIMARIO
+                ),
+                BorderLayout.NORTH
         );
-
-        titulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        18
-                )
-        );
-
-        titulo.setForeground(COLOR_TEXTO);
-
-        JLabel descripcion = new JLabel(
-                "Información general utilizada para identificar la empresa y generar documentos."
-        );
-
-        descripcion.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        descripcion.setForeground(COLOR_SECUNDARIO);
-
-        tarjeta.add(titulo);
-        tarjeta.add(Box.createVerticalStrut(5));
-        tarjeta.add(descripcion);
-        tarjeta.add(Box.createVerticalStrut(20));
 
         txtNombreEmpresa = crearCampoTexto();
         txtNit = crearCampoTexto();
@@ -246,124 +207,51 @@ public class PanelConfiguracion extends JPanel {
         configurarCampoNrc();
         configurarCampoTelefono();
 
-        JPanel fila1 = new JPanel(
-                new FlowLayout(
-                        FlowLayout.LEFT,
-                        18,
-                        0
-                )
-        );
+        JPanel formulario = new JPanel();
+        formulario.setOpaque(false);
+        formulario.setLayout(new BoxLayout(formulario, BoxLayout.Y_AXIS));
 
+        JPanel fila1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 0));
         fila1.setOpaque(false);
+        fila1.add(crearGrupoCampo("Nombre / Razón social", txtNombreEmpresa, 360));
+        fila1.add(crearGrupoCampo("NIT", txtNit, 220));
+        fila1.add(crearGrupoCampo("NRC", txtNrc, 180));
 
-        fila1.add(
-                crearGrupoCampo(
-                        "Nombre / Razón social",
-                        txtNombreEmpresa,
-                        360
-                )
-        );
-
-        fila1.add(
-                crearGrupoCampo(
-                        "NIT",
-                        txtNit,
-                        220
-                )
-        );
-
-        fila1.add(
-                crearGrupoCampo(
-                        "NRC",
-                        txtNrc,
-                        180
-                )
-        );
-
-        JPanel fila2 = new JPanel(
-                new FlowLayout(
-                        FlowLayout.LEFT,
-                        18,
-                        0
-                )
-        );
-
+        JPanel fila2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 0));
         fila2.setOpaque(false);
+        fila2.add(crearGrupoCampo("Giro comercial", txtGiroComercial, 360));
+        fila2.add(crearGrupoCampo("Teléfono", txtTelefono, 220));
+        fila2.add(crearGrupoCampo("Correo", txtCorreo, 300));
 
-        fila2.add(
-                crearGrupoCampo(
-                        "Giro comercial",
-                        txtGiroComercial,
-                        360
-                )
-        );
-
-        fila2.add(
-                crearGrupoCampo(
-                        "Teléfono",
-                        txtTelefono,
-                        220
-                )
-        );
-
-        fila2.add(
-                crearGrupoCampo(
-                        "Correo",
-                        txtCorreo,
-                        300
-                )
-        );
-
-        JPanel fila3 = new JPanel(
-                new FlowLayout(
-                        FlowLayout.LEFT,
-                        18,
-                        0
-                )
-        );
-
+        JPanel fila3 = new JPanel(new FlowLayout(FlowLayout.LEFT, 18, 0));
         fila3.setOpaque(false);
+        fila3.add(crearGrupoCampo("Dirección", txtDireccion, 700));
 
-        fila3.add(
-                crearGrupoCampo(
-                        "Dirección",
-                        txtDireccion,
-                        700
-                )
+        formulario.add(fila1);
+        formulario.add(Box.createVerticalStrut(14));
+        formulario.add(fila2);
+        formulario.add(Box.createVerticalStrut(14));
+        formulario.add(fila3);
+
+        JPanel inferior = new JPanel(new BorderLayout());
+        inferior.setOpaque(false);
+
+        JLabel nota = new JLabel(
+                "Los datos guardados se utilizan para identificar la empresa dentro de ContaProMax."
         );
+        nota.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        nota.setForeground(COLOR_SECUNDARIO);
 
-        JPanel acciones = new JPanel(
-        new FlowLayout(
-                FlowLayout.RIGHT,
-                0,
-                0
-        )
-);
+        JButton btnGuardarEmpresa = crearBotonPrincipal("✓  Guardar empresa");
+        btnGuardarEmpresa.addActionListener(e -> guardarEmpresa());
 
-acciones.setOpaque(false);
+        inferior.add(nota, BorderLayout.WEST);
+        inferior.add(btnGuardarEmpresa, BorderLayout.EAST);
 
-JButton btnGuardarEmpresa =
-        crearBotonPrincipal(
-                "Guardar empresa"
-        );
+        tarjeta.add(formulario, BorderLayout.CENTER);
+        tarjeta.add(inferior, BorderLayout.SOUTH);
 
-btnGuardarEmpresa.addActionListener(
-        e -> guardarEmpresa()
-);
-
-acciones.add(btnGuardarEmpresa);
-
-tarjeta.add(fila1);
-tarjeta.add(Box.createVerticalStrut(15));
-
-tarjeta.add(fila2);
-tarjeta.add(Box.createVerticalStrut(15));
-
-tarjeta.add(fila3);
-tarjeta.add(Box.createVerticalStrut(20));
-
-tarjeta.add(acciones);
-return tarjeta;
+        return tarjeta;
     }
 
     private JTextField crearCampoTexto() {
@@ -451,6 +339,46 @@ return tarjeta;
         grupo.add(campo);
 
         return grupo;
+    }
+
+    private JPanel crearEncabezadoTarjeta(
+            String simbolo,
+            String titulo,
+            String descripcion,
+            Color fondoIcono,
+            Color colorIcono
+    ) {
+
+        JPanel encabezado = new JPanel(new BorderLayout(14, 0));
+        encabezado.setOpaque(false);
+
+        JLabel icono = new JLabel(simbolo, SwingConstants.CENTER);
+        icono.setOpaque(true);
+        icono.setBackground(fondoIcono);
+        icono.setForeground(colorIcono);
+        icono.setFont(new Font("Segoe UI Symbol", Font.BOLD, 19));
+        icono.setPreferredSize(new Dimension(44, 44));
+
+        JPanel textos = new JPanel();
+        textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+
+        JLabel lblTitulo = new JLabel(titulo);
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblTitulo.setForeground(COLOR_TEXTO);
+
+        JLabel lblDescripcion = new JLabel(descripcion);
+        lblDescripcion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblDescripcion.setForeground(COLOR_SECUNDARIO);
+
+        textos.add(lblTitulo);
+        textos.add(Box.createVerticalStrut(3));
+        textos.add(lblDescripcion);
+
+        encabezado.add(icono, BorderLayout.WEST);
+        encabezado.add(textos, BorderLayout.CENTER);
+
+        return encabezado;
     }
 
     // =========================================================
@@ -1090,222 +1018,129 @@ return tarjeta;
 
     private JPanel crearTarjetaIva() {
 
-        JPanel tarjeta =
-                new JPanel();
-
-        tarjeta.setBackground(
-                Color.WHITE
-        );
-
-        tarjeta.setLayout(
-                new BoxLayout(
-                        tarjeta,
-                        BoxLayout.Y_AXIS
-                )
-        );
-
+        JPanel tarjeta = new JPanel(new BorderLayout(0, 18));
+        tarjeta.setBackground(Color.WHITE);
         tarjeta.setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                COLOR_BORDE
-                        ),
-                        BorderFactory.createEmptyBorder(
-                                22,
-                                22,
-                                22,
-                                22
-                        )
+                        BorderFactory.createLineBorder(COLOR_BORDE),
+                        BorderFactory.createEmptyBorder(20, 22, 20, 22)
                 )
         );
+        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 320));
+        tarjeta.setAlignmentX(LEFT_ALIGNMENT);
 
-        tarjeta.setMaximumSize(
-                new Dimension(
-                        Integer.MAX_VALUE,
-                        310
+        tarjeta.add(
+                crearEncabezadoTarjeta(
+                        "%",
+                        "Configuración de IVA",
+                        "Define el porcentaje y la forma en que el sistema interpreta los montos de nuevas operaciones.",
+                        new Color(240, 253, 244),
+                        COLOR_VERDE
+                ),
+                BorderLayout.NORTH
+        );
+
+        JPanel centro = new JPanel();
+        centro.setOpaque(false);
+        centro.setLayout(new BoxLayout(centro, BoxLayout.Y_AXIS));
+
+        JPanel estado = new JPanel(new BorderLayout());
+        estado.setBackground(COLOR_CELESTE_SUAVE);
+        estado.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(191, 219, 254)),
+                        BorderFactory.createEmptyBorder(11, 13, 11, 13)
                 )
         );
+        estado.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
+        estado.setAlignmentX(LEFT_ALIGNMENT);
 
-        tarjeta.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
+        lblConfiguracionActual = new JLabel("Cargando configuración...");
+        lblConfiguracionActual.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblConfiguracionActual.setForeground(COLOR_PRIMARIO);
+        estado.add(lblConfiguracionActual, BorderLayout.WEST);
 
-        JLabel titulo =
-                new JLabel(
-                        "Configuración de IVA"
-                );
+        centro.add(estado);
+        centro.add(Box.createVerticalStrut(16));
 
-        titulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        18
-                )
-        );
-
-        titulo.setForeground(
-                COLOR_TEXTO
-        );
-
-        lblConfiguracionActual =
-                new JLabel(
-                        "Cargando configuración..."
-                );
-
-        lblConfiguracionActual.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        lblConfiguracionActual.setForeground(
-                COLOR_SECUNDARIO
-        );
-
-        JPanel campos =
-                new JPanel(
-                        new FlowLayout(
-                                FlowLayout.LEFT,
-                                12,
-                                0
-                        )
-                );
-
+        JPanel campos = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         campos.setOpaque(false);
+        campos.setAlignmentX(LEFT_ALIGNMENT);
 
-        JLabel lblPorcentaje =
-                new JLabel(
-                        "IVA (%):"
-                );
+        JLabel lblPorcentaje = new JLabel("IVA (%):");
+        lblPorcentaje.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblPorcentaje.setForeground(COLOR_TEXTO);
 
-        lblPorcentaje.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        13
+        txtPorcentajeIva = new JTextField(8);
+        txtPorcentajeIva.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtPorcentajeIva.setPreferredSize(new Dimension(100, 38));
+        txtPorcentajeIva.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(COLOR_BORDE),
+                        BorderFactory.createEmptyBorder(6, 10, 6, 10)
                 )
         );
 
-        lblPorcentaje.setForeground(
-                COLOR_TEXTO
+        JLabel lblModo = new JLabel("Modo:");
+        lblModo.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblModo.setForeground(COLOR_TEXTO);
+
+        cmbTipoIva = new JComboBox<>(
+                new String[]{
+                    "IVA incluido en el monto",
+                    "Monto + IVA"
+                }
         );
+        cmbTipoIva.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cmbTipoIva.setPreferredSize(new Dimension(230, 38));
+        cmbTipoIva.setBackground(Color.WHITE);
 
-        txtPorcentajeIva =
-                new JTextField(8);
-
-        txtPorcentajeIva.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        14
-                )
-        );
-
-        txtPorcentajeIva.setPreferredSize(
-                new Dimension(
-                        100,
-                        36
-                )
-        );
-
-        JLabel lblModo =
-                new JLabel(
-                        "Modo:"
-                );
-
-        lblModo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        13
-                )
-        );
-
-        lblModo.setForeground(
-                COLOR_TEXTO
-        );
-
-        cmbTipoIva =
-                new JComboBox<>(
-                        new String[]{
-                            "IVA incluido en el monto",
-                            "Monto + IVA"
-                        }
-                );
-
-        cmbTipoIva.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        cmbTipoIva.setPreferredSize(
-                new Dimension(
-                        210,
-                        36
-                )
-        );
-
-        JButton btnGuardar =
-                crearBotonPrincipal(
-                        "Guardar IVA"
-                );
-
-        btnGuardar.addActionListener(
-                e -> guardarIva()
-        );
+        JButton btnGuardar = crearBotonPrincipal("✓  Guardar IVA");
+        btnGuardar.addActionListener(e -> guardarIva());
 
         campos.add(lblPorcentaje);
         campos.add(txtPorcentajeIva);
+        campos.add(Box.createHorizontalStrut(5));
         campos.add(lblModo);
         campos.add(cmbTipoIva);
         campos.add(btnGuardar);
 
-        JLabel ayuda =
-                new JLabel(
-                        "<html><div style='width:760px;'>"
-                        + "<b>IVA incluido:</b> si escribes 10,000, ese valor ya contiene IVA. "
-                        + "<b>Monto + IVA:</b> si escribes 10,000, el sistema agrega el IVA encima."
-                        + "<br><br><b>Importante:</b> el cambio aplica solamente a operaciones nuevas; "
-                        + "los asientos ya contabilizados no se modifican."
-                        + "</div></html>"
-                );
+        centro.add(campos);
+        centro.add(Box.createVerticalStrut(16));
 
-        ayuda.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        12
+        JPanel ayuda = new JPanel(new BorderLayout(12, 0));
+        ayuda.setBackground(new Color(248, 250, 252));
+        ayuda.setBorder(
+                BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(COLOR_BORDE),
+                        BorderFactory.createEmptyBorder(12, 13, 12, 13)
                 )
         );
+        ayuda.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        ayuda.setAlignmentX(LEFT_ALIGNMENT);
 
-        ayuda.setForeground(
-                COLOR_SECUNDARIO
+        JLabel icono = new JLabel("i", SwingConstants.CENTER);
+        icono.setOpaque(true);
+        icono.setBackground(COLOR_CELESTE_SUAVE);
+        icono.setForeground(COLOR_PRIMARIO);
+        icono.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        icono.setPreferredSize(new Dimension(34, 34));
+
+        JLabel textoAyuda = new JLabel(
+                "<html><div style='width:850px;'>"
+                + "<b>IVA incluido:</b> si escribes 10,000, ese monto ya contiene IVA. "
+                + "<b>Monto + IVA:</b> si escribes 10,000, el sistema agrega el IVA encima."
+                + "<br><b>Importante:</b> el cambio aplica solamente a operaciones nuevas; los asientos ya contabilizados no se modifican."
+                + "</div></html>"
         );
+        textoAyuda.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        textoAyuda.setForeground(COLOR_SECUNDARIO);
 
-        tarjeta.add(titulo);
-        tarjeta.add(
-                Box.createVerticalStrut(10)
-        );
+        ayuda.add(icono, BorderLayout.WEST);
+        ayuda.add(textoAyuda, BorderLayout.CENTER);
 
-        tarjeta.add(
-                lblConfiguracionActual
-        );
-
-        tarjeta.add(
-                Box.createVerticalStrut(18)
-        );
-
-        tarjeta.add(campos);
-
-        tarjeta.add(
-                Box.createVerticalStrut(16)
-        );
-
-        tarjeta.add(ayuda);
+        centro.add(ayuda);
+        tarjeta.add(centro, BorderLayout.CENTER);
 
         return tarjeta;
     }
@@ -1444,135 +1279,61 @@ return tarjeta;
 
     private JPanel crearTarjetaReinicio() {
 
-        JPanel tarjeta =
-                new JPanel(
-                        new BorderLayout(
-                                20,
-                                0
-                        )
-                );
-
-        tarjeta.setBackground(
-                Color.WHITE
-        );
-
+        JPanel tarjeta = new JPanel(new BorderLayout(18, 0));
+        tarjeta.setBackground(new Color(255, 251, 251));
         tarjeta.setBorder(
                 BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(
-                                new Color(
-                                        254,
-                                        202,
-                                        202
-                                )
-                        ),
-                        BorderFactory.createEmptyBorder(
-                                22,
-                                22,
-                                22,
-                                22
-                        )
+                        BorderFactory.createLineBorder(new Color(254, 202, 202)),
+                        BorderFactory.createEmptyBorder(18, 20, 18, 20)
                 )
         );
+        tarjeta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+        tarjeta.setAlignmentX(LEFT_ALIGNMENT);
 
-        tarjeta.setMaximumSize(
-                new Dimension(
-                        Integer.MAX_VALUE,
-                        190
-                )
-        );
+        JLabel icono = new JLabel("!", SwingConstants.CENTER);
+        icono.setOpaque(true);
+        icono.setBackground(new Color(254, 226, 226));
+        icono.setForeground(COLOR_ROJO);
+        icono.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        icono.setPreferredSize(new Dimension(46, 46));
 
-        tarjeta.setAlignmentX(
-                LEFT_ALIGNMENT
-        );
-
-        JPanel textos =
-                new JPanel();
-
+        JPanel textos = new JPanel();
         textos.setOpaque(false);
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
 
-        textos.setLayout(
-                new BoxLayout(
-                        textos,
-                        BoxLayout.Y_AXIS
-                )
+        JLabel titulo = new JLabel("Zona de pruebas");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        titulo.setForeground(COLOR_TEXTO);
+
+        JLabel descripcion = new JLabel(
+                "<html><div style='width:720px;'>"
+                + "Reinicia operaciones, asientos, detalles, Kardex, capas PEPS, históricos de prueba y saldos iniciales. "
+                + "Se conservan empresa, configuración, catálogo, usuarios y productos."
+                + "</div></html>"
         );
+        descripcion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        descripcion.setForeground(COLOR_SECUNDARIO);
 
-        JLabel titulo =
-                new JLabel(
-                        "Zona de pruebas"
-                );
-
-        titulo.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        18
-                )
-        );
-
-        titulo.setForeground(
-                COLOR_TEXTO
-        );
-
-        JLabel descripcion =
-                new JLabel(
-                        "<html><div style='width:650px;'>"
-                        + "Reinicia operaciones, asientos, detalles, Kardex, capas PEPS y saldos iniciales."
-                        + "<br>Conserva empresa, configuración, catálogo, usuarios y productos; deja un único período abierto para volver a probar."
-                        + "</div></html>"
-                );
-
-        descripcion.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.PLAIN,
-                        13
-                )
-        );
-
-        descripcion.setForeground(
-                COLOR_SECUNDARIO
-        );
+        JLabel advertencia = new JLabel("Acción irreversible · Úsala únicamente para volver a probar el sistema.");
+        advertencia.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        advertencia.setForeground(COLOR_ROJO);
 
         textos.add(titulo);
-
-        textos.add(
-                Box.createVerticalStrut(8)
-        );
-
+        textos.add(Box.createVerticalStrut(5));
         textos.add(descripcion);
+        textos.add(Box.createVerticalStrut(6));
+        textos.add(advertencia);
 
-        JPanel acciones =
-                new JPanel(
-                        new FlowLayout(
-                                FlowLayout.RIGHT
-                        )
-                );
+        JButton btnReiniciar = crearBotonPeligro("⚠  Reiniciar datos de prueba");
+        btnReiniciar.addActionListener(e -> confirmarReinicio());
 
+        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         acciones.setOpaque(false);
+        acciones.add(btnReiniciar);
 
-        JButton btnReiniciar =
-                crearBotonPeligro(
-                        "Reiniciar datos de prueba"
-                );
-
-        btnReiniciar.addActionListener(
-                e -> confirmarReinicio()
-        );
-
-        acciones.add(
-                btnReiniciar
-        );
-
-        tarjeta.add(
-                textos,
-                BorderLayout.CENTER
-        );
-
-        tarjeta.add(
-                acciones,
-                BorderLayout.SOUTH
-        );
+        tarjeta.add(icono, BorderLayout.WEST);
+        tarjeta.add(textos, BorderLayout.CENTER);
+        tarjeta.add(acciones, BorderLayout.EAST);
 
         return tarjeta;
     }
@@ -1585,46 +1346,30 @@ return tarjeta;
             String texto
     ) {
 
-        JButton boton =
-                new JButton(texto);
+        JButton boton = new JButton(texto);
 
-        boton.setUI(
-                new BasicButtonUI()
-        );
-
-        boton.setFont(
-                new Font(
-                        "Segoe UI",
-                        Font.BOLD,
-                        13
-                )
-        );
-
-        boton.setForeground(
-                Color.WHITE
-        );
-
-        boton.setBackground(
-                COLOR_PRIMARIO
-        );
-
-        boton.setBorder(
-                BorderFactory.createEmptyBorder(
-                        10,
-                        16,
-                        10,
-                        16
-                )
-        );
-
+        boton.setUI(new BasicButtonUI());
+        boton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        boton.setForeground(Color.WHITE);
+        boton.setBackground(COLOR_PRIMARIO);
+        boton.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
         boton.setFocusPainted(false);
         boton.setOpaque(true);
         boton.setContentAreaFilled(true);
+        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        boton.setCursor(
-                new Cursor(
-                        Cursor.HAND_CURSOR
-                )
+        boton.addMouseListener(
+                new java.awt.event.MouseAdapter() {
+                    @Override
+                    public void mouseEntered(java.awt.event.MouseEvent e) {
+                        boton.setBackground(COLOR_PRIMARIO_HOVER);
+                    }
+
+                    @Override
+                    public void mouseExited(java.awt.event.MouseEvent e) {
+                        boton.setBackground(COLOR_PRIMARIO);
+                    }
+                }
         );
 
         return boton;
